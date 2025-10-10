@@ -1,32 +1,2638 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ai虚拟建构生物膜模型平台 - 交互式教学系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
+        /* Design tokens */
+        :root {
+            --brand-700: #1d4ed8;
+            --brand-600: #2563eb;
+            --brand-500: #3b82f6;
+            --brand-400: #60a5fa;
+            --teal-500:  #14b8a6;
+            --rose-500:  #f43f5e;
+            --amber-500: #f59e0b;
+            --lime-500:  #84cc16;
+            --surface:   #ffffff;
+            --panel:     #ffffff;
+            --panel-border: #e6eef9;
+            --panel-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+            --radius: 14px;
+            --radius-sm: 10px;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden; /* 页面不出现横向滚动 */
+        }
+
+        /* 全局加粗：将页面所有文本设为加粗 */
+        body, body * { font-weight: 700 !important; }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: #0b3d91;
+            margin-bottom: 30px;
+            background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+            padding: 22px 24px;
+            border-radius: var(--radius);
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--panel-shadow);
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #546e7a;
+            font-size: 1.1em;
+        }
+
+        .header .meta-author {
+            color: #0b3d91;
+            font-size: 1.06em;
+            font-weight: 800;
+            letter-spacing: .2px;
+            margin-top: 4px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) clamp(280px, 32vw, 380px); /* 放大右侧信息面板，以便 AI 区域更宽 */
+            grid-template-rows: auto 1fr;     /* 顶部组件栏 + 下方画布 */
+            gap: 12px;                        /* 上下间距更紧凑 */
+            align-items: start;
+        }
+
+        .component-panel {
+            background: var(--panel);
+            border-radius: var(--radius);
+            padding: 18px;
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--panel-shadow);
+            height: fit-content;
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .component-strip {
+            display: flex;                    /* 单排水平排列 */
+            flex-wrap: nowrap;                /* 不换行，超出则滚动 */
+            gap: 6px;                         /* 缩小卡片间距 */
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+            overscroll-behavior-x: contain;   /* 只在此处水平滚动，不联动页面 */
+            touch-action: pan-x;              /* 允许在组件条横向滑动 */
+        }
+        .component-strip::-webkit-scrollbar { height: 8px; }
+        .component-strip::-webkit-scrollbar-thumb { background: #c5d7f2; border-radius: 8px; }
+        .component-strip::-webkit-scrollbar-track { background: #eef3fb; }
+
+        .component-panel h2 {
+            color: #1565c0;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #e3f2fd;
+        }
+
+        .component-item {
+            background: linear-gradient(180deg, #f9fbff, #f0f6ff);
+            border: 1px solid #dbe7fb;
+            border-radius: 14px;
+            padding: 8px;                     /* 更紧凑的内边距 */
+            margin-bottom: 0;
+            cursor: grab;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+            position: relative;
+            user-select: none;
+            width: 100px;       /* 小正方形卡片 */
+            min-width: 100px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .component-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 22px rgba(59, 130, 246, 0.22);
+            border-color: var(--brand-400);
+            background: linear-gradient(180deg, #f7fbff, #eaf3ff);
+        }
+
+        .component-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .component-item.selected {
+            border-color: #1976d2;
+            background: #e3f2fd;
+            box-shadow: 0 4px 12px rgba(25,118,210,0.25);
+        }
+
+        .component-visual {
+            width: 100%;
+            height: 56px;                     /* 小正方形中更清晰的预览区 */
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .component-visual svg { width: 48px; height: 48px; }
+
+        .component-name {
+            display: block;                   /* 简短名称显示 */
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+            color: #37474f;
+            font-size: 11px;                 /* 更小字号 */
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .component-desc { display: none; }
+
+        /* 组件卡片上的批量放置小开关 */
+        .bulk-chip {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            padding: 2px 6px;
+            font-size: 10px;
+            border-radius: 12px;
+            background: #e9eef6;
+            color: #0f172a;
+            border: 1px solid #cfd8e3;
+            cursor: pointer;
+            line-height: 1.4;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        .bulk-chip.active { background: #cfe1ff; border-color: #93c5fd; color: #0b3d91; }
+
+        .membrane-builder {
+            background: var(--panel);
+            border-radius: var(--radius);
+            padding: 24px;
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--panel-shadow);
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .builder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e3f2fd;
+        }
+
+        .builder-header h2 {
+            color: #1565c0;
+            font-size: 1.4em;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid #d9e6fb;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+            letter-spacing: 0.3px;
+            color: #0f172a;
+            background: linear-gradient(180deg, #ffffff, #f3f7ff);
+            box-shadow: 0 2px 8px rgba(2, 6, 12, 0.06);
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(2,6,12,0.10); }
+        .btn:focus-visible { outline: 2px solid var(--brand-400); outline-offset: 2px; }
+
+        .btn-icon {
+            padding: 8px 10px;
+            font-size: 12px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #f3f7ff, #eaf2ff);
+            color: #0b3d91;
+            border: 1px solid #d9e6fb;
+        }
+        .btn-icon.active { background: #dceaff; border-color: #c7ddff; color: #0b3d91; box-shadow: 0 6px 18px rgba(59,130,246,0.18); }
+
+        .btn-preset {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-preset:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-save { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color:#fff; }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 176, 155, 0.35); }
+        .btn-load { background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%); color:#fff; }
+        .btn-load:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(255, 94, 98, 0.35); }
+
+        
+
+        .btn-motion { background: linear-gradient(135deg, var(--teal-500), var(--brand-600)); color: #fff; border: none; }
+        .btn-motion.active {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #0b3d2e;
+        }
+
+        .btn-ai {
+            background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%);
+            color: #fff;
+        }
+
+        #membraneCanvas {
+            width: 100%;
+            height: 500px;
+            background: #ffffff;
+            border-radius: var(--radius);
+            position: relative;
+            overflow: hidden;
+            border: 2px dashed #b7d3ff;
+            transition: all 0.3s ease;
+            overscroll-behavior: contain; /* 防止触控滚动链到页面 */
+            touch-action: none;            /* 画布自定义手势（拖拽/缩放/点击放置） */
+        }
+
+        /* Studio 模式：更像建模平台的视觉（浅色） */
+        #membraneCanvas.studio {
+            background: radial-gradient(1000px 500px at 30% 30%, #f4f7fb 0%, #e6efff 60%, #dbe8ff 100%);
+            border: 1px solid #cfd8e3;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6), 0 6px 18px rgba(0,0,0,0.12);
+        }
+
+        /* 画布内容容器：统一缩放对象 */
+        #canvasContent {
+            position: absolute;
+            inset: 0;
+            transform-origin: center center;
+            touch-action: none; /* 允许自定义多指手势（pinch/pan） */
+        }
+        /* 画布尺寸手动调节把手 */
+        .resize-handle { position:absolute; z-index: 100; background: rgba(59,130,246,0.85); opacity:.6; border-radius: 3px; }
+        .resize-handle.right { top: 50%; right: 2px; transform: translateY(-50%); width: 8px; height: 80px; cursor: ew-resize; }
+        .resize-handle.bottom { left: 50%; bottom: 2px; transform: translateX(-50%); height: 8px; width: 120px; cursor: ns-resize; }
+        .resize-handle.corner { right: 2px; bottom: 2px; width: 16px; height: 16px; cursor: nwse-resize; border-radius: 4px; }
+        @media (pointer: coarse) {
+            .resize-handle.right { width: 14px; height: 120px; right: 4px; }
+            .resize-handle.bottom { height: 14px; width: 160px; bottom: 4px; }
+            .resize-handle.corner { width: 22px; height: 22px; right: 4px; bottom: 4px; }
+        }
+        /* 画布引导卡片（默认显示，放置组件后自动隐藏） */
+        .canvas-intro { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; z-index: 1; }
+        .canvas-intro .intro-card { pointer-events:auto; max-width:min(560px, 86%); background: rgba(255,255,255,0.9); border:1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 14px 16px; color:#0f172a; }
+        .canvas-intro .intro-title { font-weight: 700; margin-bottom: 8px; color:#0b3d91; }
+        .canvas-intro ul { padding-left: 18px; }
+        .canvas-intro li { font-size: 13px; line-height: 1.6; color:#1f2937; }
+        #membraneCanvas.studio .canvas-intro .intro-card { background: rgba(255,255,255,0.9); border-color:#cfd8e3; color:#0f172a; }
+        #membraneCanvas.studio .canvas-intro .intro-title { color:#0b3d91; }
+
+        /* 网格覆盖层（跟随缩放） */
+        .grid-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.18;
+            display: none;
+            /* 默认使用黑色网格线，便于在浅色背景上识别 */
+            background-image:
+              linear-gradient(rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,0,0,1) 1px, transparent 1px);
+            /* 每个小格为 40px（与磷脂宽度一致），每 5 格加一条较粗的主网格线（200px） */
+            background-size: 40px 40px, 40px 40px, 200px 200px, 200px 200px;
+            background-position: 0 0, 0 0, 0 0, 0 0;
+        }
+
+        /* Studio 浅色工作台使用深色网格线，保证对比度 */
+        #membraneCanvas.studio .grid-overlay {
+            opacity: 0.22;
+            background-image:
+              linear-gradient(rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(rgba(0,0,0,1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,0,0,1) 1px, transparent 1px);
+        }
+
+        /* 底部状态栏 */
+        .status-bar {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #334155;
+            background: #eef4fb;
+            border: 1px solid var(--panel-border);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        #membraneCanvas.studio + .status-bar { background: #eef4fb; color: #334155; border: 1px solid #cfd8e3; }
+
+        /* 操作提示 */
+        .op-hint {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #607d8b;
+            background: #f8fafc;
+            border: 1px dashed #e2e8f0;
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+
+        /* AI 悬浮窗 */
+        .ai-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 3000; display: none;
+        }
+        .ai-modal {
+            position: fixed; z-index: 3001; display: none;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: min(880px, 96vw); max-height: 92vh;
+            background: radial-gradient(1200px 700px at 10% 0%, #0b1220 0%, #0a0f1a 60%, #070c13 100%);
+            border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+            border: 1px solid rgba(59,130,246,0.25); overflow: hidden; display: flex; flex-direction: column;
+        }
+        /* 页面模式：以“整页界面”呈现助手，而非悬浮窗 */
+        .ai-modal.page-mode {
+            top: 0; left: 0; transform: none;
+            width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0;
+            box-shadow: none; border: none; z-index: 10;
+        }
+        .hidden { display: none !important; }
+        /* 顶部返回按钮样式稍明显些 */
+        .ai-back { background: transparent; border: 1px solid rgba(59,130,246,0.35); color:#93c5fd; border-radius: 8px; padding: 6px 10px; cursor:pointer; margin-right:8px; }
+        .ai-back:hover { background: rgba(226,232,240,0.08); }
+        .ai-modal-header { padding: 10px 12px; background: linear-gradient(180deg, rgba(30,41,59,0.9), rgba(2,6,12,0.9)); border-bottom: 1px solid rgba(59,130,246,0.25); display: flex; align-items:center; justify-content: space-between; cursor: move; user-select: none; }
+        .ai-modal-title { font-weight: 800; color: #e2e8f0; letter-spacing: .5px; }
+        .ai-close { background: transparent; border: none; font-size: 18px; color: #334155; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+        .ai-close:hover { background: rgba(226,232,240,0.18); color:#e2e8f0; }
+        .ai-modal-body { padding: 12px; overflow: hidden; display:flex; flex-direction:column; gap:10px; }
+
+        /* 聊天窗口样式 */
+        .chat-log { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 8px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { display: flex; gap: 8px; align-items: flex-end; }
+        .msg.ai { justify-content: flex-start; }
+        .msg.user { justify-content: flex-end; }
+        .bubble { max-width: 72%; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+        .msg.ai .bubble { background: rgba(30,41,59,0.85); color:#e2e8f0; border: 1px solid rgba(99,102,241,0.25); }
+        .msg.user .bubble { background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; border: 1px solid rgba(56,189,248,0.25); }
+        .bubble img { display:block; max-width: 280px; border-radius: 10px; margin-bottom: 6px; }
+        .typing { width: 36px; height: 14px; display:inline-flex; gap:4px; align-items:center; }
+        .typing span { width:6px; height:6px; background:#cbd5e1; border-radius:50%; animation: blink 1.2s infinite ease-in-out; opacity:.5; }
+        .typing span:nth-child(2){ animation-delay:.2s }
+        .typing span:nth-child(3){ animation-delay:.4s }
+        @keyframes blink { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-3px);opacity:1} }
+
+        .chat-input { flex: 0 0 auto; display: flex; gap: 8px; align-items:center; background: rgba(15,23,42,0.6); border: 1px solid rgba(59,130,246,0.25); border-radius: 10px; padding: 8px; }
+        .chat-input textarea { flex: 1 1 auto; min-height: 36px; max-height: 120px; resize: vertical; border: none; outline: none; padding: 8px; border-radius: 6px; color:#e2e8f0; background: rgba(2,6,12,0.45); }
+        .icon-btn { background: rgba(226,232,240,0.08); border: 1px solid rgba(59,130,246,0.35); color:#93c5fd; border-radius: 8px; padding: 6px 10px; cursor:pointer; }
+        .icon-btn:hover { background: rgba(59,130,246,0.18); }
+        .send-btn { background: linear-gradient(135deg, #06b6d4, #2563eb); color:#fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+        .send-btn:hover { filter: brightness(1.1); }
+        .ai-settings { display:none; padding: 10px; border-top: 1px solid rgba(59,130,246,0.25); background: rgba(15,23,42,0.45); }
+        .ai-settings .ai-row { gap:10px }
+        .ai-settings input { background: rgba(2,6,12,0.6); color:#e2e8f0; border:1px solid rgba(59,130,246,0.3); }
+        .ai-settings select { background: rgba(2,6,12,0.6); color:#e2e8f0; border:1px solid rgba(59,130,246,0.3); border-radius:8px; padding:6px 8px; }
+
+        #membraneCanvas.placing {
+            cursor: crosshair;
+            border-color: #1976d2;
+        }
+
+        #membraneCanvas.drag-over {
+            border-color: #1976d2;
+            background: #ffffff;
+            box-shadow: inset 0 0 30px rgba(25, 118, 210, 0.2);
+        }
+
+        .membrane-layer {
+            position: absolute;
+            width: 100%;
+            height: 200px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .placed-component {
+            position: absolute;
+            cursor: move;
+            transition: filter 0.3s ease;
+            z-index: 10;
+            user-select: none;
+            touch-action: none; /* 元素自身响应拖拽手势，不触发浏览器滚动 */
+        }
+
+        /* 选中态高亮 */
+        .placed-component.selected {
+            outline: 2px solid rgba(25,118,210,0.9);
+            outline-offset: 2px;
+            filter: drop-shadow(0 6px 18px rgba(25,118,210,0.25));
+        }
+
+        /* 评分高亮 */
+        /* 取消局部高亮：AI 评分以面板结果为主（如需再开启局部高亮，可在AI输出中返回定位规则） */
+
+        .score-panel { margin-top: 12px; padding: 12px; border: 1px solid #cfe1ff; border-radius: 12px; background: #eaf4ff; box-shadow: 0 6px 18px rgba(2,6,12,0.06); }
+        #membraneCanvas.studio + .status-bar + .info-panel .score-panel { background: #eef4fb; border-color:#cfd8e3; }
+        .score-total { font-weight: 800; color: #0b3d91; margin-bottom: 8px; font-size: 14px; }
+        .score-list { margin: 0; padding-left: 18px; color:#334155; font-size: 13px; }
+
+        /* Floating AI score card */
+        .ai-score-float {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 200;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(6px) saturate(140%);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            box-shadow: var(--panel-shadow);
+            padding: 10px 12px;
+            min-width: 220px;
+            max-width: min(42vw, 360px);
+            color: #0f172a;
+            pointer-events: auto;
+        }
+        .ai-score-top { display:flex; align-items:center; justify-content: space-between; gap: 8px; }
+        .ai-chip { background: linear-gradient(180deg, #f3f7ff, #eaf2ff); border:1px solid #d9e6fb; color:#0b3d91; border-radius:999px; font-size:11px; font-weight:700; padding:2px 8px; }
+        .ai-score-total { font-weight: 800; color:#0b3d91; font-size: 14px; }
+        .ai-score-summary { margin-top: 4px; font-size: 12px; color:#475569; }
+        .ai-score-mini { margin: 8px 0 0; padding-left: 18px; color:#334155; font-size: 12px; max-height: 140px; overflow:auto; }
+        .ai-score-mini li { line-height: 1.5; }
+        .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#22c55e; }
+        .dot.warn { background:#f59e0b; }
+        .dot.bad { background:#ef4444; }
+
+        /* Polished scrollbars + focus */
+        *::-webkit-scrollbar { width: 10px; height: 10px; }
+        *::-webkit-scrollbar-thumb { background: #cfe1ff; border-radius: 10px; border: 2px solid #eef5ff; }
+        *::-webkit-scrollbar-track { background: #f3f7ff; }
+        button:focus-visible, .component-item:focus-visible { outline: 2px solid var(--brand-400); outline-offset: 2px; }
+
+        .placed-component:hover {
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3)) brightness(1.1);
+            z-index: 20;
+        }
+
+        .info-panel {
+            background: var(--panel);
+            border-radius: var(--radius);
+            padding: 20px;
+            border: 1px solid var(--panel-border);
+            box-shadow: var(--panel-shadow);
+            height: fit-content;
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            min-width: 240px;
+        }
+
+        .info-panel h2 {
+            color: #1565c0;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #e3f2fd;
+        }
+
+        .stats-grid {
+            display: grid;
+            gap: 8px; /* 更紧凑的卡片间距 */
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: stretch;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 6px 8px; /* 缩小卡片内边距 */
+            border-radius: 8px; /* 更小圆角 */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            min-height: 32px; /* 控制卡片高度更紧凑 */
+        }
+
+        .stat-item:hover { transform: translateX(3px); box-shadow: 0 6px 18px rgba(2,6,12,0.08); }
+
+        .stat-label {
+            font-weight: 600;
+            color: #37474f;
+            font-size: 0.85em; /* 文本更小 */
+        }
+
+        .stat-value {
+            font-weight: 700;
+            font-size: 0.95em; /* 数字更小 */
+            color: #1565c0;
+            background: white;
+            padding: 0 8px; /* 缩小徽标尺寸 */
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        .knowledge-card { display: none; }
+        .ai-launch { margin-top: 16px; padding: 20px; border-radius: 14px;
+            background: linear-gradient(135deg, rgba(6,182,212,0.95), rgba(37,99,235,0.95));
+            border: 1px solid rgba(59,130,246,0.45);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.35);
+            color: #eaf2ff;
+        }
+        .ai-launch h3 { font-size: 1.24em; color: #ffffff; margin-bottom: 8px; letter-spacing: .3px; display:flex; align-items:center; gap:8px; }
+        .ai-launch p { color: #e6f1ff; font-size: 13px; margin-bottom: 10px; opacity:.95 }
+        .ai-features { margin: 8px 0 12px; padding-left: 18px; }
+        .ai-features li { font-size: 12px; line-height: 1.6; color: #f1f5ff; }
+
+        /* AI 学习助手面板 */
+        .ai-panel {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .ai-panel h2 {
+            font-size: 1.1em;
+            color: #0f172a;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ai-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .ai-panel textarea {
+            width: 100%;
+            min-height: 78px;
+            resize: vertical;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #cfd8e3;
+            outline: none;
+        }
+        .ai-panel input[type="text"],
+        .ai-panel input[type="password"] {
+            flex: 1 1 150px;
+            min-width: 150px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid #cfd8e3;
+            outline: none;
+            font-size: 12px;
+        }
+        .ai-panel input[type="file"] { flex: 1 1 160px; min-width: 160px; }
+        .ai-actions { margin-top: 8px; display: flex; gap: 8px; }
+        .ai-btn { padding: 6px 10px; border: 1px solid #cfd8e3; background: #e9eef6; color: #0f172a; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .ai-btn.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+        .ai-status { margin-top: 6px; font-size: 12px; color: #64748b; }
+        .ai-response { margin-top: 10px; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #0f172a; white-space: pre-wrap; }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(33, 33, 33, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(5px);
+        }
+
+        /* 删除双击删除的提示，避免遮挡视野 */
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .floating { animation: float 3s ease-in-out infinite; }
+        .pulsing { animation: pulse 2s ease-in-out infinite; }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .component-panel { grid-column: 1; grid-row: 1; }
+            .membrane-builder { grid-column: 1; grid-row: 2; }
+            .info-panel { grid-column: 1; grid-row: 3; max-width: 100%; }
+        }
+    </style>
+    <style>
+        /* === 平板与一体机适配增强（不会影响原有布局，仅做覆盖） === */
+        body {
+            -webkit-text-size-adjust: 100%;
+            padding-left: calc(20px + env(safe-area-inset-left));
+            padding-right: calc(20px + env(safe-area-inset-right));
+            padding-top: calc(20px + env(safe-area-inset-top));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+        .container { max-width: 1760px; }
+        .component-strip { scroll-snap-type: x proximity; }
+        .component-strip > .component-item { scroll-snap-align: start; }
+        /* 画布高度随视口伸缩（小屏不挤，大屏不浪费） */
+        #membraneCanvas { height: clamp(380px, 56vh, 780px); }
+
+        /* 触控设备：增大触达面积与画布 */
+        @media (pointer: coarse) {
+            .btn { padding: 12px 22px; font-size: 15px; min-height: 40px; }
+            .btn-icon { padding: 10px 12px; font-size: 13px; }
+            .component-item { width: 120px; min-width: 120px; height: 120px; }
+            .component-visual svg { width: 56px; height: 56px; }
+            .component-name { font-size: 12px; }
+            #membraneCanvas { height: min(64vh, 800px); }
+        }
+
+        /* 大屏一体机：更高画布、更宽容器与略大组件 */
+        @media (min-width: 1600px) {
+            .container { max-width: 1840px; }
+            #membraneCanvas { height: clamp(540px, 60vh, 900px); }
+            .component-item { width: 110px; min-width: 110px; height: 110px; }
+            .component-visual svg { width: 54px; height: 54px; }
+        }
+    </style>
+    </head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Ai虚拟建构生物膜模型平台&交互式教学系统</h1>
+            <div class="meta-author">制作信息：饶名祯 · 广昌县第一中学</div>
+        </div>
+
+        <div class="main-content">
+            <div class="component-panel">
+                <h2>📦 膜结构组件</h2>
+                <div class="op-hint">操作提示：点击/轻触左侧组件选择 → 画布点击/轻触放置（亦可拖拽）；双击/双击组件可删除。若需一次性添加 5 个磷脂，请点击左侧“磷脂(正/倒)”卡片右上角的“x5”开关后，在画布轻触位置批量放置。</div>
+                <div class="component-strip">
+
+                <!-- 磷脂分子（正置） -->
+                <div class="component-item" draggable="true" data-type="phospholipid-up" data-name="磷脂分子（正置）" title="磷脂分子（正置）：头部朝外、尾部朝内">
+                    <button class="bulk-chip" data-type="phospholipid-up" title="批量放置5个（正置）">x5</button>
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <circle cx="20" cy="15" r="8" fill="#64B5F6"/>
+                            <path d="M15 25 C 12 32, 18 38, 15 45 C 12 50, 18 55, 15 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M25 25 C 28 32, 22 38, 25 45 C 28 50, 22 55, 25 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+
+                            <circle cx="60" cy="15" r="8" fill="#64B5F6"/>
+                            <path d="M55 25 C 52 32, 58 38, 55 45 C 52 50, 58 55, 55 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M65 25 C 68 32, 62 38, 65 45 C 68 50, 62 55, 65 58" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">磷脂(正)</div>
+                    <div class="component-desc">头部朝外、尾部朝内，构成上层</div>
+                </div>
+
+                <!-- 磷脂分子（倒置） -->
+                <div class="component-item" draggable="true" data-type="phospholipid-down" data-name="磷脂分子（倒置）" title="磷脂分子（倒置）：头部朝外、尾部朝内（下层）">
+                    <button class="bulk-chip" data-type="phospholipid-down" title="批量放置5个（倒置）">x5</button>
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <circle cx="20" cy="45" r="8" fill="#64B5F6"/>
+                            <path d="M15 35 C 12 28, 18 22, 15 15 C 12 10, 18 5, 15 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M25 35 C 28 28, 22 22, 25 15 C 28 10, 22 5, 25 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+
+                            <circle cx="60" cy="45" r="8" fill="#64B5F6"/>
+                            <path d="M55 35 C 52 28, 58 22, 55 15 C 52 10, 58 5, 55 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M65 35 C 68 28, 62 22, 65 15 C 68 10, 62 5, 65 2" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">磷脂(倒)</div>
+                    <div class="component-desc">头部朝外、尾部朝内，构成下层</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="integral-protein" data-name="跨膜蛋白" title="跨膜蛋白：嵌入并穿过脂双层">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <path d="M28 8 C 24 18, 24 42, 28 52 L52 52 C 56 42, 56 18, 52 8 Z" fill="#9575CD" opacity="0.95"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">跨膜蛋白</div>
+                    <div class="component-desc">贯穿整个脂双层，参与物质运输和信号传导</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="peripheral-protein" data-name="外周蛋白" title="外周蛋白：附着膜内外表面，不穿过膜">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <ellipse cx="40" cy="30" rx="24" ry="14" fill="#B39DDB" opacity="0.95"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">外周蛋白</div>
+                    <div class="component-desc">附着在膜的内外表面，不穿过脂双层</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="glycoprotein" data-name="糖蛋白" title="糖蛋白：主链向上 + 右侧长支链，六边形糖相连，无连线">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <rect x="30" y="28" width="20" height="27" rx="6" fill="#7CB342" opacity="0.9"/>
+                            <!-- 主链上的六边形糖（相邻排列，无连线） -->
+                            <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,18 41.5,15.4 38.5,15.4 37,18 38.5,20.6 41.5,20.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,12 41.5,9.4 38.5,9.4 37,12 38.5,14.6 41.5,14.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,6 41.5,3.4 38.5,3.4 37,6 38.5,8.6 41.5,8.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <!-- 右侧支链上的 6 个六边形糖（沿斜向排列，无连线） -->
+                            <polygon points="49,20.5 47.5,17.9 44.5,17.9 43,20.5 44.5,23.1 47.5,23.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="53,18.5 51.5,15.9 48.5,15.9 47,18.5 48.5,21.1 51.5,21.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="57,16.5 55.5,13.9 52.5,13.9 51,16.5 52.5,19.1 55.5,19.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="61,14.5 59.5,11.9 56.5,11.9 55,14.5 56.5,17.1 59.5,17.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="65,12.5 63.5,9.9 60.5,9.9 59,12.5 60.5,15.1 63.5,15.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="69,10.5 67.5,7.9 64.5,7.9 63,10.5 64.5,13.1 67.5,13.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="73,8.5 71.5,5.9 68.5,5.9 67,8.5 68.5,11.1 71.5,11.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="77,6.5 75.5,3.9 72.5,3.9 71,6.5 72.5,9.1 75.5,9.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">糖蛋白</div>
+                    <div class="component-desc">一条主链 + 右侧较长支链（≥6 六边形糖）</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="glycolipid" data-name="糖脂" title="糖脂：主链上延 + 右侧长支链，六边形糖相连，无连线">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 橙红色疏水尾（波浪） + 头部 -->
+                            <circle cx="40" cy="35" r="6" fill="#FF7043"/>
+                            <path d="M35 41 C 32 46, 38 50, 35 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <path d="M45 41 C 48 46, 42 50, 45 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                            <!-- 主链上的六边形糖（相邻排列） -->
+                            <polygon points="43,25 41.5,22.4 38.5,22.4 37,25 38.5,27.6 41.5,27.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,19 41.5,16.4 38.5,16.4 37,19 38.5,21.6 41.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="43,13.5 41.5,10.9 38.5,10.9 37,13.5 38.5,16.1 41.5,16.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <!-- 右侧支链上的 6 个六边形糖（斜向排列） -->
+                            <polygon points="49,21 47.5,18.4 44.5,18.4 43,21 44.5,23.6 47.5,23.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="53,19 51.5,16.4 48.5,16.4 47,19 48.5,21.6 51.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="57,17 55.5,14.4 52.5,14.4 51,17 52.5,19.6 55.5,19.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="61,15 59.5,12.4 56.5,12.4 55,15 56.5,17.6 59.5,17.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="65,13 63.5,10.4 60.5,10.4 59,13 60.5,15.6 63.5,15.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="69,11 67.5,8.4 64.5,8.4 63,11 64.5,13.6 67.5,13.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="73,9 71.5,6.4 68.5,6.4 67,9 68.5,11.6 71.5,11.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                            <polygon points="77,7 75.5,4.4 72.5,4.4 71,7 72.5,9.6 75.5,9.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">糖脂</div>
+                    <div class="component-desc">一条主链 + 右侧较长支链（≥6 六边形糖）</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="cholesterol" data-name="胆固醇" title="胆固醇：位于脂双层中，调节流动性">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 较小的刚性环状结构（黄色） -->
+                            <polygon points="40,18 48,24 48,36 40,42 32,36 32,24" fill="#FFB300" opacity="0.95"/>
+                            <circle cx="40" cy="30" r="4.5" fill="#F57C00"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">胆固醇</div>
+                    <div class="component-desc">调节膜的流动性和稳定性</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="channel-protein" data-name="通道蛋白" title="离子通道：形成贯穿首尾的亲水通道">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <!-- 贯穿型通道：内孔镂空（透明），从顶部到底部贯穿 -->
+                            <defs>
+                                <mask id="channelMaskIcon">
+                                    <rect x="0" y="0" width="80" height="60" fill="white"/>
+                                    <!-- 黑色区域为镂空内孔（首尾贯穿） -->
+                                    <rect x="34" y="0" width="12" height="60" rx="6" fill="black"/>
+                                </mask>
+                            </defs>
+                            <rect x="28" y="6" width="24" height="48" rx="10" fill="#9575CD" opacity="0.95" mask="url(#channelMaskIcon)"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">通道蛋白</div>
+                    <div class="component-desc">形成亲水通道，允许特定离子通过</div>
+                </div>
+
+                <div class="component-item" draggable="true" data-type="carrier-protein" data-name="载体蛋白" title="载体蛋白：首尾贯穿，左右凹槽，更厚实；通道更窄">
+                    <div class="component-visual">
+                        <svg width="80" height="60" viewBox="0 0 80 60">
+                            <defs>
+                                <mask id="carrierMaskIcon">
+                                    <rect x="0" y="0" width="80" height="60" fill="white"/>
+                                    <!-- 首尾贯穿的内孔 -->
+                                    <rect x="36" y="0" width="8" height="60" rx="4" fill="black"/>
+                                    <!-- 左右两侧半圆形凹槽/缺口 -->
+                                    <circle cx="36" cy="30" r="4.5" fill="black"/>
+                                    <circle cx="44" cy="30" r="4.5" fill="black"/>
+                                </mask>
+                            </defs>
+                            <!-- 外部主体更厚实（增宽） + 镂空内孔 -->
+                            <rect x="25" y="6" width="30" height="48" rx="12" fill="#7E57C2" opacity="0.95" mask="url(#carrierMaskIcon)"/>
+                        </svg>
+                    </div>
+                    <div class="component-name">载体蛋白</div>
+                    <div class="component-desc">首尾贯穿，左右侧壁均有凹槽/缺口</div>
+                </div>
+
+                
+                </div> <!-- /.component-strip -->
             </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
+
+            <div class="membrane-builder">
+                <div class="builder-header">
+                    <h2>🔬 膜结构组装区</h2>
+                    <div class="control-buttons">
+                        <button class="btn btn-icon" id="studioBtn" onclick="toggleStudio()">工作台</button>
+                        <button class="btn btn-icon" id="gridBtn" onclick="toggleGrid()">网格</button>
+                        <button class="btn btn-icon" id="snapBtn" onclick="toggleSnap()">吸附</button>
+                        <button class="btn btn-icon" onclick="zoomOut()">缩小</button>
+                        <button class="btn btn-icon" onclick="zoomIn()">放大</button>
+                        <button class="btn btn-icon" onclick="resetView()">重置视图</button>
+                        <button class="btn btn-motion" id="motionToggleBtn" onclick="toggleMotion()">开启运动</button>
+                        <button class="btn btn-save" onclick="saveCustomPreset()">保存为示例</button>
+                        <button class="btn btn-load" onclick="loadCustomPreset()">加载我的示例</button>
+                        <button class="btn btn-preset" onclick="loadPreset()">加载示例</button>
+                        <button class="btn btn-clear" onclick="clearCanvas()">清空画布</button>
+                    </div>
+                </div>
+
+                <div id="membraneCanvas">
+                    <div id="canvasContent">
+                        <div class="grid-overlay" id="gridOverlay"></div>
+                        <div class="membrane-layer" id="membraneBackground"></div>
+                        <div class="canvas-intro" id="canvasIntro">
+                            <div class="intro-card">
+                                <div class="intro-title">🎓 快速上手</div>
+                                <ul>
+                                    <li>从左侧选择“磷脂/蛋白/糖类”，在画布轻触放置</li>
+                                    <li>拖动组件调整位置，开启“吸附”更整齐</li>
+                                    <li>按住空格并拖动（或按中键拖动）可平移画布</li>
+                                    <li>单击选中已放置组件，按 Delete/Backspace 删除</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="resize-handle right" id="resizeRight" title="拖动调整宽度"></div>
+                    <div class="resize-handle bottom" id="resizeBottom" title="拖动调整高度"></div>
+                    <div class="resize-handle corner" id="resizeCorner" title="拖动调整大小"></div>
+                </div>
+                <div class="status-bar" id="statusBar">
+                    <span id="statusPos">X: -，Y: -</span>
+                    <span id="statusZoom">缩放: 1.00x</span>
+                    <span id="statusFlags">网格: 关 | 吸附: 关</span>
+                </div>
             </div>
-        </main>
-    </body>
+
+            <div class="info-panel">
+                <div class="ai-launch">
+                    <h3>🤖 AI 学习助手</h3>
+                    <p>智能问答、图片理解与建模建议，帮助你更快完成任务。</p>
+                    <ul class="ai-features">
+                        <li>文字提问：概念解释、实验思路、构型建议</li>
+                        <li>图片上传：对截图/照片进行标注与讲解</li>
+                        <li>结合画布：根据当前组装状态给出优化建议</li>
+                    </ul>
+                    <button class="ai-btn primary" onclick="openAIModal()">打开 AI 助手</button>
+                </div>
+
+                <h2 style="margin-top:16px">🎯 AI 实时评分</h2>
+                <div class="score-panel" id="scorePanel">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                        <button class="btn btn-icon" id="aiScoreToggleBtn" onclick="toggleAiAutoEval()">开启 AI 实时评分</button>
+                    </div>
+                    <div class="score-total" id="scoreTotal">未开始</div>
+                    <ul class="score-list" id="scoreDetails"></ul>
+                </div>
+                
+
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- AI 悬浮窗 -->
+    <div class="ai-backdrop" id="aiBackdrop" onclick="closeAIModal()"></div>
+    <div class="ai-modal" id="aiModal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+        <div class="ai-modal-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button class="ai-back" onclick="closeAIModal()">← 返回建模</button>
+                <div class="ai-modal-title" id="aiModalTitle">🤖 AI 学习助手</div>
+            </div>
+            <div>
+                <button class="ai-close" aria-label="设置" onclick="toggleAISettings()">⚙️</button>
+            </div>
+        </div>
+        <div class="ai-modal-body">
+            <div class="chat-log" id="chatLog"></div>
+            <div class="chat-input">
+                <input type="file" id="aiImage" accept="image/*" style="display:none" />
+                <button class="icon-btn" title="上传图片" onclick="document.getElementById('aiImage').click()">🖼️</button>
+                <textarea id="aiQuestion" placeholder="输入问题，按 Enter 发送（或点击发送）"></textarea>
+                <button class="send-btn" onclick="askAI()">发送</button>
+            </div>
+                <div class="ai-settings" id="aiSettingsPanel">
+                    <div class="ai-row">
+                        <select id="aiProvider">
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="ark">火山引擎 Ark</option>
+                        </select>
+                        <select id="aiModelSelect"></select>
+                        <input type="text" id="aiModel" placeholder="自定义模型/推理点（如 ep-xxxx）" style="display:none" />
+                        <input type="password" id="aiApiKey" placeholder="API 密钥（仅需填写此项即可使用）" />
+                        <button class="ai-btn" onclick="saveAISettings()">保存</button>
+                    </div>
+                    <div class="ai-status" id="aiStatus">可在上方选择 DeepSeek 或火山 Ark；只需填写对应 API 密钥即可使用（默认模型：DeepSeek=deepseek-chat，Ark=doubao-seed-1-6-250615）。</div>
+                </div>
+            </div>
+    </div>
+
+    <script>
+        // 全局变量
+        const canvas = document.getElementById('membraneCanvas');
+        const content = document.getElementById('canvasContent');
+        const gridOverlay = document.getElementById('gridOverlay');
+        const statusBar = document.getElementById('statusBar');
+        const statusPos = document.getElementById('statusPos');
+        const statusZoom = document.getElementById('statusZoom');
+        const statusFlags = document.getElementById('statusFlags');
+        const tooltip = document.getElementById('tooltip');
+        let draggedElement = null;
+        let currentView = 'side'; // 'side' 或 'top'
+        let componentCounts = {};
+        let selectedType = null; // 当前点击放置选择的组件类型
+        let selectedItemEl = null; // 左侧被选中的项
+        // 记录两类磷脂各自的行（中心 Y），用于吸附时自动保持同一水平线
+        const lastPhosRowY = { 'phospholipid-up': null, 'phospholipid-down': null };
+        // 批量放置（一次性添加5个磷脂）
+        let bulkPreferredType = null; // 'phospholipid-up' | 'phospholipid-down' | null
+        let placeBulkCount = 1; // 1(默认) 或 10
+        let motionEnabled = false; // 分子运动开关，默认静止
+
+        // 画布手动尺寸调节
+        const resizeHandles = {
+            right: null,
+            bottom: null,
+            corner: null,
+        };
+
+        // 组件信息定义
+        const componentInfo = {
+            'phospholipid-up': { name: '磷脂分子（正置）', desc: '头部朝外、尾部朝内，适用于上层' },
+            'phospholipid-down': { name: '磷脂分子（倒置）', desc: '头部朝外、尾部朝内，适用于下层' },
+            'integral-protein': { name: '跨膜蛋白（整合蛋白）', desc: '贯穿脂双层，参与物质运输和信号传导' },
+            'peripheral-protein': { name: '外周蛋白（膜周蛋白）', desc: '附着在膜的内外表面，不穿过脂双层' },
+            'glycoprotein': { name: '糖蛋白', desc: '蛋白质连接糖链，参与细胞识别与免疫' },
+            'glycolipid': { name: '糖脂', desc: '脂质连接糖链，位于细胞膜外侧' },
+            'cholesterol': { name: '胆固醇', desc: '插入脂双层之间，调节膜的流动性与稳定性' },
+            'channel-protein': { name: '离子通道蛋白', desc: '形成亲水孔道，允许特定离子选择性通过' },
+            'carrier-protein': { name: '载体蛋白', desc: '首尾贯穿，并在通道内具有结合位点' }
+        };
+
+        // 统计面板映射
+        const typeToCounterId = {
+            'phospholipid-up': 'phospholipidUpCount',
+            'phospholipid-down': 'phospholipidDownCount',
+            'integral-protein': 'integralProteinCount',
+            'peripheral-protein': 'peripheralProteinCount',
+            'glycoprotein': 'glycoproteinCount',
+            'glycolipid': 'glycolipidCount',
+            'cholesterol': 'cholesterolCount',
+            'channel-protein': 'channelProteinCount',
+            'carrier-protein': 'carrierProteinCount'
+        };
+
+        // 本地存储键名
+        const STORAGE_KEY = 'cell-membrane-custom-preset-v1';
+        const AI_SETTINGS_KEY = 'cell-membrane-ai-settings-v1';
+        const ARK_ENDPOINT_DEFAULT = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+        const DEEPSEEK_ENDPOINT_DEFAULT = 'https://api.deepseek.com/chat/completions';
+
+        // AI 实时评分开关（默认关闭，按钮一键开启）
+        let aiAutoEvalEnabled = false;
+        let aiEvalTimer = null;
+
+        // 组件SVG定义（更详细版本）
+        const componentSVGs = {
+            'phospholipid-up': `<svg width="40" height="80" viewBox="0 0 40 80">
+                <circle cx="20" cy="14" r="10" fill="#64B5F6" opacity="0.95"/>
+                <path d="M15 26 C 12 36, 18 44, 15 52 C 12 58, 18 66, 15 72" stroke="#EF5350" stroke-width="3" fill="none"/>
+                <path d="M25 26 C 28 36, 22 44, 25 52 C 28 58, 22 66, 25 72" stroke="#EF5350" stroke-width="3" fill="none"/>
+            </svg>`,
+            'phospholipid-down': `<svg width="40" height="80" viewBox="0 0 40 80">
+                <circle cx="20" cy="66" r="10" fill="#64B5F6" opacity="0.95"/>
+                <path d="M15 56 C 12 46, 18 38, 15 30 C 12 24, 18 16, 15 10" stroke="#EF5350" stroke-width="3" fill="none"/>
+                <path d="M25 56 C 28 46, 22 38, 25 30 C 28 24, 22 16, 25 10" stroke="#EF5350" stroke-width="3" fill="none"/>
+            </svg>`,
+
+            'integral-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <path d="M15 24 C 10 60, 10 140, 15 176 L45 176 C 50 140, 50 60, 45 24 Z" fill="#9575CD" opacity="0.95"/>
+            </svg>`,
+
+            'peripheral-protein': `<svg width="70" height="50" viewBox="0 0 70 50">
+                <ellipse cx="35" cy="25" rx="28" ry="18" fill="#B39DDB" opacity="0.95"/>
+            </svg>`,
+
+            'glycoprotein': `<svg width="80" height="60" viewBox="0 0 80 60">
+                <rect x="30" y="28" width="20" height="27" rx="6" fill="#7CB342" opacity="0.9"/>
+                <!-- 主链六边形（相邻排列，无连线） -->
+                <polygon points="43,24 41.5,21.4 38.5,21.4 37,24 38.5,26.6 41.5,26.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,18 41.5,15.4 38.5,15.4 37,18 38.5,20.6 41.5,20.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,12 41.5,9.4 38.5,9.4 37,12 38.5,14.6 41.5,14.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,6 41.5,3.4 38.5,3.4 37,6 38.5,8.6 41.5,8.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧支链六边形（≥6 个） -->
+                <polygon points="49,20.5 47.5,17.9 44.5,17.9 43,20.5 44.5,23.1 47.5,23.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,18.5 51.5,15.9 48.5,15.9 47,18.5 48.5,21.1 51.5,21.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,16.5 55.5,13.9 52.5,13.9 51,16.5 52.5,19.1 55.5,19.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="61,14.5 59.5,11.9 56.5,11.9 55,14.5 56.5,17.1 59.5,17.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="65,12.5 63.5,9.9 60.5,9.9 59,12.5 60.5,15.1 63.5,15.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="69,10.5 67.5,7.9 64.5,7.9 63,10.5 64.5,13.1 67.5,13.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="73,8.5 71.5,5.9 68.5,5.9 67,8.5 68.5,11.1 71.5,11.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="77,6.5 75.5,3.9 72.5,3.9 71,6.5 72.5,9.1 75.5,9.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+            </svg>`,
+
+            'glycolipid': `<svg width="80" height="60" viewBox="0 0 80 60">
+                <!-- 头部与两条疏水尾（波浪） -->
+                <circle cx="40" cy="35" r="6" fill="#FF7043"/>
+                <path d="M35 41 C 32 46, 38 50, 35 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                <path d="M45 41 C 48 46, 42 50, 45 54" stroke="#EF5350" stroke-width="2.5" fill="none"/>
+                <!-- 主链六边形（相邻排列） -->
+                <polygon points="43,25 41.5,22.4 38.5,22.4 37,25 38.5,27.6 41.5,27.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,19 41.5,16.4 38.5,16.4 37,19 38.5,21.6 41.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="43,13.5 41.5,10.9 38.5,10.9 37,13.5 38.5,16.1 41.5,16.1" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <!-- 右侧支链六边形（≥6 个） -->
+                <polygon points="49,21 47.5,18.4 44.5,18.4 43,21 44.5,23.6 47.5,23.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="53,19 51.5,16.4 48.5,16.4 47,19 48.5,21.6 51.5,21.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="57,17 55.5,14.4 52.5,14.4 51,17 52.5,19.6 55.5,19.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="61,15 59.5,12.4 56.5,12.4 55,15 56.5,17.6 59.5,17.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="65,13 63.5,10.4 60.5,10.4 59,13 60.5,15.6 63.5,15.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="69,11 67.5,8.4 64.5,8.4 63,11 64.5,13.6 67.5,13.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="73,9 71.5,6.4 68.5,6.4 67,9 68.5,11.6 71.5,11.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+                <polygon points="77,7 75.5,4.4 72.5,4.4 71,7 72.5,9.6 75.5,9.6" fill="#FFD54F" stroke="#FFA000" stroke-width="0.9"/>
+            </svg>`,
+
+            'cholesterol': `<svg width="45" height="60" viewBox="0 0 45 60">
+                <polygon points="22.5,12 34,20 34,40 22.5,48 11,40 11,20" fill="#FFB300" opacity="0.95"/>
+                <circle cx="22.5" cy="30" r="6" fill="#F57C00"/>
+            </svg>`,
+
+            'channel-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <!-- 贯穿孔道使用遮罩实现镂空效果 -->
+                <defs>
+                    <mask id="channelMaskPlaced">
+                        <rect x="0" y="0" width="60" height="200" fill="white"/>
+                        <!-- 黑色区域为镂空通道（首尾贯穿） -->
+                        <rect x="22" y="0" width="16" height="200" rx="8" fill="black"/>
+                    </mask>
+                </defs>
+                <rect x="15" y="10" width="30" height="180" rx="14" fill="#9575CD" opacity="0.95" mask="url(#channelMaskPlaced)"/>
+            </svg>`,
+
+            'carrier-protein': `<svg width="60" height="200" viewBox="0 0 60 200">
+                <!-- 首尾贯穿的载体蛋白：外部主体更厚实 + 更窄的镂空通道 + 左右凹槽结合位点 -->
+                <defs>
+                    <mask id="carrierMaskPlaced">
+                        <rect x="0" y="0" width="60" height="200" fill="white"/>
+                        <!-- 更窄的贯穿通道（居中） -->
+                        <rect x="25" y="0" width="10" height="200" rx="6" fill="black"/>
+                        <!-- 左右侧壁各一个半圆凹槽作为结合位点（贴近通道） -->
+                        <circle cx="25" cy="100" r="6.5" fill="black"/>
+                        <circle cx="35" cy="100" r="6.5" fill="black"/>
+                    </mask>
+                </defs>
+                <!-- 外部主体更厚实（增宽） -->
+                <rect x="12" y="10" width="36" height="180" rx="16" fill="#7E57C2" opacity="0.95" mask="url(#carrierMaskPlaced)"/>
+            </svg>`
+        };
+
+        // 初始化拖拽（左侧面板 -> 画布）
+        document.querySelectorAll('.component-item').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('click', () => selectItemForPlace(item));
+            // 双击组件：取消选择
+            item.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                clearSelection();
+            });
+            // 触控设备：轻触选择
+            if (window.PointerEvent) {
+                item.addEventListener('pointerdown', (e) => {
+                    if (e.pointerType !== 'mouse') selectItemForPlace(item);
+                });
+            } else {
+                item.addEventListener('touchstart', () => selectItemForPlace(item), { passive: true });
+            }
+        });
+
+        // 左侧磷脂卡片上的“x5”芯片事件绑定
+        document.querySelectorAll('.bulk-chip').forEach(chip => {
+            const type = chip.getAttribute('data-type');
+            const handler = (e) => { e.stopPropagation(); toggleBulkPhospho(type); };
+            if (window.PointerEvent) chip.addEventListener('pointerdown', handler);
+            else chip.addEventListener('click', handler);
+        });
+
+        canvas.addEventListener('dragover', handleDragOver);
+        canvas.addEventListener('drop', handleDrop);
+        canvas.addEventListener('dragleave', handleDragLeave);
+        canvas.addEventListener('click', handleCanvasClickToPlace);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') clearSelection(); });
+        canvas.addEventListener('mousemove', (e) => {
+            const p = screenToContent(e.clientX, e.clientY);
+            updateStatus(p);
+        });
+        // 触控状态更新（避免与鼠标重复）
+        if (window.PointerEvent) {
+            canvas.addEventListener('pointermove', (e) => {
+                if (e.pointerType === 'mouse') return;
+                const p = screenToContent(e.clientX, e.clientY);
+                updateStatus(p);
+            });
+        }
+
+        // 鼠标拖拽画布：水平 + 垂直平移
+        (function initCanvasPan() {
+            let startX = 0, startY = 0;
+            let startPanX = 0, startPanY = 0;
+            const threshold = 3; // 像素阈值，超过则判定为拖拽
+
+            function onMouseMove(ev) {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                if (!isCanvasPanning && (Math.abs(dx) > threshold || Math.abs(dy) > threshold)) {
+                    isCanvasPanning = true;
+                    suppressNextCanvasClick = true; // 抑制紧随其后的 click 放置
+                    document.body.style.userSelect = 'none';
+                    canvas.style.cursor = 'grabbing';
+                    if (tooltip) tooltip.style.display = 'none';
+                }
+                if (isCanvasPanning) {
+                    panX = startPanX + dx / zoomScale; // 以内容坐标计算
+                    panY = startPanY + dy / zoomScale;
+                    applyTransform();
+                    ev.preventDefault();
+                }
+            }
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                isCanvasPanning = false;
+                document.body.style.userSelect = '';
+                canvas.style.cursor = '';
+                // suppressNextCanvasClick 在下一次 click 时自动清除
+                scheduleAiEvaluation();
+            }
+
+            const shouldPanWithMouse = (e) => {
+                // 允许：中键，或 直接左键 在空白区域平移（更直觉）
+                // 同时仍支持按住空格再左键的方式
+                const isMiddle = e.button === 1;
+                const isLeft = e.button === 0;
+                const isLeftWithSpace = isLeft && window.__spacePanActive;
+                return isMiddle || isLeft || isLeftWithSpace;
+            };
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (!shouldPanWithMouse(e)) return;
+                // 点击在已放置组件或调整把手上时，不触发画布平移
+                if (e.target.closest('.placed-component') || e.target.closest('.resize-handle')) return;
+                startX = e.clientX; startY = e.clientY;
+                startPanX = panX; startPanY = panY;
+                isCanvasPanning = false;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                e.preventDefault();
+            });
+
+            // 空格键按住时启用平移（左键）
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && !window.__spacePanActive) {
+                    window.__spacePanActive = true;
+                    canvas.style.cursor = 'grab';
+                }
+            });
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'Space') {
+                    window.__spacePanActive = false;
+                    if (!isCanvasPanning) canvas.style.cursor = '';
+                }
+            });
+        })();
+
+        // 触控点击放置（避免双触发，仅处理 touch/pen）
+        if (window.PointerEvent) {
+            let downInfo = null;
+            canvas.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse') return;
+                downInfo = { x: e.clientX, y: e.clientY, t: Date.now(), target: e.target };
+            });
+            canvas.addEventListener('pointerup', (e) => {
+                if (e.pointerType === 'mouse') return;
+                if (!selectedType || !downInfo) return;
+                const dt = Date.now() - downInfo.t;
+                const dx = Math.abs(e.clientX - downInfo.x);
+                const dy = Math.abs(e.clientY - downInfo.y);
+                const smallMove = (dx + dy) < 8;
+                const validTarget = (downInfo.target === canvas || downInfo.target === content || e.target === canvas || e.target === content);
+                if (dt < 400 && smallMove && validTarget) {
+                    const p1 = screenToContent(e.clientX, e.clientY);
+                    placeAt(selectedType, p1.x, p1.y);
+                }
+                downInfo = null;
+            });
+        } else {
+            // Touch 兼容处理（旧设备）
+            let touchDown = null;
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                const t = e.touches[0];
+                touchDown = { x: t.clientX, y: t.clientY, time: Date.now(), target: e.target };
+            }, { passive: true });
+            canvas.addEventListener('touchend', (e) => {
+                if (!selectedType || !touchDown) return;
+                const dt = Date.now() - touchDown.time;
+                if (dt > 400) { touchDown = null; return; }
+                const t = (e.changedTouches || [])[0];
+                if (!t) { touchDown = null; return; }
+                const dx = Math.abs(t.clientX - touchDown.x);
+                const dy = Math.abs(t.clientY - touchDown.y);
+                const smallMove = (dx + dy) < 8;
+                const validTarget = (touchDown.target === canvas || touchDown.target === content);
+                if (smallMove && validTarget) {
+                    const p1 = screenToContent(t.clientX, t.clientY);
+                    placeAt(selectedType, p1.x, p1.y);
+                }
+                touchDown = null;
+            });
+        }
+
+        // 画布缩放：默认启用触控手势缩放，并根据视口自适应初始缩放
+        const ENABLE_GESTURE_ZOOM = true;
+        let zoomScale = 2;
+        // 画布平移（以内容坐标为单位）
+        let panX = 0, panY = 0;
+        let isCanvasPanning = false;
+        let suppressNextCanvasClick = false;
+        const MIN_ZOOM = 0.5;
+        const MAX_ZOOM = 3;
+        let pinchStartDist = 0;
+        let pinchStartScale = 2;
+        let pinchOrigin = { x: null, y: null };
+
+        // 根据浏览器窗口自动缩放（以画布高度为基准），并避免用户手动缩放后被覆盖
+        let lastManualZoomTs = 0;
+        function markManualZoom() { lastManualZoomTs = Date.now(); }
+        function autoFitToViewport() {
+            // 目标：让画布内容在竖向占据视口的 60% 左右，避免小屏过大或大屏过小
+            const vh = window.innerHeight || document.documentElement.clientHeight;
+            const ch = canvas.clientHeight || 500;
+            const target = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (vh * 0.6) / ch));
+            setZoom(target);
+        }
+
+        // Studio、网格、吸附（默认开启 Studio）
+        let studioEnabled = true;
+        let gridEnabled = false;
+        let snapEnabled = false;
+        // 与磷脂分子尺寸保持一致（svg 宽 40，高 80）
+        const PHOS_W = 40;
+        const PHOS_H = 80;
+        const GRID_SIZE = PHOS_W;
+
+        function applyTransform() {
+            // 缩放后再平移（CSS 从右到左应用）：screen = translate(pan) * scale(zoom)
+            content.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+        }
+
+        function setZoom(next, originX = null, originY = null) {
+            zoomScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next));
+            if (originX != null && originY != null) {
+                content.style.transformOrigin = `${originX}px ${originY}px`;
+            }
+            applyTransform();
+            updateStatus();
+        }
+
+        function distance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+        if (ENABLE_GESTURE_ZOOM) {
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    pinchStartDist = distance(e.touches);
+                    pinchStartScale = zoomScale;
+                    // 以双指中点作为缩放原点
+                    const rect = canvas.getBoundingClientRect();
+                    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    const p = screenToContent(midX, midY);
+                    pinchOrigin = { x: p.x, y: p.y };
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const curDist = distance(e.touches);
+                    const factor = curDist / pinchStartDist;
+                    setZoom(pinchStartScale * factor, pinchOrigin.x, pinchOrigin.y);
+                    markManualZoom();
+                }
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => { pinchStartDist = 0; });
+            canvas.addEventListener('touchcancel', () => { pinchStartDist = 0; });
+
+            // 桌面：按住 Ctrl 滚轮缩放（以指针为中心）
+            canvas.addEventListener('wheel', (e) => {
+                if (!e.ctrlKey) return;
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const pointerX = (e.clientX - rect.left) / zoomScale;
+                const pointerY = (e.clientY - rect.top) / zoomScale;
+                const delta = -e.deltaY;
+                const factor = Math.exp(delta * 0.0015);
+                setZoom(zoomScale * factor, pointerX, pointerY);
+                markManualZoom();
+            }, { passive: false });
+        } else {
+        // 初始自适应
+        autoFitToViewport();
+        }
+
+        // 默认打开 Studio（浅色工作台）并设置按钮高亮
+        (function initStudioDefault(){
+            document.getElementById('studioBtn')?.classList.toggle('active', true);
+            canvas.classList.toggle('studio', true);
+            refreshAiToggleUI();
+        })();
+
+        // 始终在加载后执行一次自适应，保证初始视觉合适
+        window.requestAnimationFrame(autoFitToViewport);
+
+        // 辅助：屏幕坐标 -> 内容坐标（考虑缩放与中心为原点）
+        function screenToContent(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const originX = canvas.clientWidth / 2;
+            const originY = canvas.clientHeight / 2;
+            const sx = clientX - rect.left;
+            const sy = clientY - rect.top;
+            // 反变换：content = origin + (screen - origin - pan)/scale
+            const cx = (sx - originX - panX) / zoomScale + originX;
+            const cy = (sy - originY - panY) / zoomScale + originY;
+            return { x: cx, y: cy };
+        }
+
+        // 工具栏操作
+        function toggleStudio() {
+            studioEnabled = !studioEnabled;
+            document.getElementById('studioBtn')?.classList.toggle('active', studioEnabled);
+            canvas.classList.toggle('studio', studioEnabled);
+        }
+        function toggleGrid() {
+            gridEnabled = !gridEnabled;
+            document.getElementById('gridBtn')?.classList.toggle('active', gridEnabled);
+            gridOverlay.style.display = gridEnabled ? 'block' : 'none';
+            updateStatus();
+        }
+        function toggleSnap() {
+            snapEnabled = !snapEnabled;
+            document.getElementById('snapBtn')?.classList.toggle('active', snapEnabled);
+            updateStatus();
+        }
+        function refreshAiToggleUI(){
+            const btn = document.getElementById('aiScoreToggleBtn');
+            if (btn){
+                btn.classList.toggle('active', aiAutoEvalEnabled);
+                btn.textContent = aiAutoEvalEnabled ? '关闭 AI 实时评分' : '开启 AI 实时评分';
+            }
+        }
+        function toggleAiAutoEval() {
+            aiAutoEvalEnabled = !aiAutoEvalEnabled;
+            refreshAiToggleUI();
+            if (aiAutoEvalEnabled) scheduleAiEvaluation(true);
+        }
+        function zoomIn() { setZoom(Math.min(MAX_ZOOM, zoomScale * 1.15)); markManualZoom(); }
+        function zoomOut() { setZoom(Math.max(MIN_ZOOM, zoomScale / 1.15)); markManualZoom(); }
+        function resetView() {
+            // 重置缩放与平移
+            panX = 0; panY = 0;
+            setZoom(2);
+            applyTransform();
+            markManualZoom();
+        }
+
+        function updateStatus(pt) {
+            if (pt) {
+                statusPos.textContent = `X: ${Math.round(pt.x)}，Y: ${Math.round(pt.y)}`;
+            }
+            statusZoom.textContent = `缩放: ${zoomScale.toFixed(2)}x`;
+            statusFlags.textContent = `网格: ${gridEnabled ? '开' : '关'} | 吸附: ${snapEnabled ? '开' : '关'}`;
+        }
+
+        // ========== AI 实时评分 ==========
+        function getPlacedComponents() {
+            return Array.from(document.querySelectorAll('#canvasContent .placed-component'));
+        }
+        function centerOf(el) {
+            const left = parseFloat(el.style.left) || 0;
+            const top = parseFloat(el.style.top) || 0;
+            const w = el.offsetWidth, h = el.offsetHeight;
+            return { x: left + w / 2, y: top + h / 2 };
+        }
+        function mean(arr) { if (!arr.length) return 0; return arr.reduce((a,b)=>a+b,0)/arr.length; }
+        function stdev(arr) { if (arr.length < 2) return 0; const m = mean(arr); const v = mean(arr.map(v=> (v-m)*(v-m))); return Math.sqrt(v); }
+        function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+        function scheduleAiEvaluation(immediate=false){
+            if (!aiAutoEvalEnabled && !immediate) return;
+            if (aiEvalTimer) clearTimeout(aiEvalTimer);
+            aiEvalTimer = setTimeout(()=> aiEvaluateCanvas(), immediate ? 0 : 600);
+        }
+
+        async function aiEvaluateCanvas(){
+            const totalEl = document.getElementById('scoreTotal');
+            const listEl = document.getElementById('scoreDetails');
+            if (totalEl) totalEl.textContent = 'AI 正在评分…';
+            if (listEl) { listEl.innerHTML = ''; }
+
+            const state = captureCanvasState();
+            const settings = readAISettings();
+            if (!settings.apiKey) {
+                if (totalEl) totalEl.textContent = '未配置AI密钥，无法评分';
+                return;
+            }
+            try{
+                const result = await callAIForEvaluation(settings, state);
+                if (!result) throw new Error('AI未返回结果');
+                const { score, summary, checklist } = normalizeAIResult(result);
+                if (totalEl) totalEl.textContent = `得分：${Math.round(score||0)}/100`;
+                if (listEl) {
+                    listEl.innerHTML = '';
+                    (checklist||[]).forEach(item=>{
+                        const li = document.createElement('li');
+                        li.textContent = `${item.name || item.item || '项'}：${item.ok ? '通过' : '待改进'}${item.points!=null?` (+${item.points})`:''}${item.advice?`；建议：${item.advice}`:''}`;
+                        listEl.appendChild(li);
+                    });
+                    if (summary){ const li = document.createElement('li'); li.textContent = `说明：${summary}`; listEl.appendChild(li); }
+                }
+                // 渲染在侧栏卡片
+            } catch(err){
+                if (totalEl) totalEl.textContent = `评分失败：${err.message}`;
+            }
+        }
+
+        function captureCanvasState(){
+            const els = getPlacedComponents();
+            const items = els.map(el=>{
+                const rect = { w: el.offsetWidth, h: el.offsetHeight };
+                const c = centerOf(el);
+                return { type: el.dataset.type, cx: Math.round(c.x), cy: Math.round(c.y), w: rect.w, h: rect.h };
+            });
+            const counts = {};
+            els.forEach(el => { const t = el.dataset.type; counts[t] = (counts[t]||0) + 1; });
+            return {
+                canvas: { width: canvas.clientWidth, height: canvas.clientHeight },
+                items,
+                counts
+            };
+        }
+
+        function readAISettings(){
+            try { return JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || '{}'); } catch { return {}; }
+        }
+
+        async function callAIForEvaluation(settings, state){
+            const provider = (settings.provider || 'deepseek').toLowerCase();
+            const model = settings.model || (provider==='deepseek' ? 'deepseek-chat' : 'doubao-seed-1-6-250615');
+            const apiKey = settings.apiKey;
+            const system = 'You are a biology teaching assistant. Evaluate a cell membrane assembly state and return only compact JSON.';
+            const user = `请评分当前膜结构组装情况，并返回严格JSON（不含多余文字）：\n{
+  "score": 0..100,
+  "summary": "一句话总结",
+  "checklist": [ {"name":"上层连续性","ok":true,"points":10,"advice":"..."}, ... ]
+}\n数据：${JSON.stringify(state)}`;
+
+            if (provider==='deepseek'){
+                const body = { model, messages:[{role:'system',content:system},{role:'user',content:user}], stream:false };
+                const res = await fetch(DEEPSEEK_ENDPOINT_DEFAULT, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`}, body: JSON.stringify(body)});
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                const text = data.choices?.[0]?.message?.content || '';
+                return safeParseJSON(text);
+            } else {
+                const body = { model, messages:[{ role:'user', content:[{type:'text', text: `${system}\n${user}`}] }] };
+                const res = await fetch(ARK_ENDPOINT_DEFAULT, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`}, body: JSON.stringify(body)});
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                const msg = data.choices?.[0]?.message;
+                const text = Array.isArray(msg?.content) ? msg.content.map(p=>p.text||'').join('\n') : (msg?.content||'');
+                return safeParseJSON(text);
+            }
+        }
+
+        function safeParseJSON(text){
+            try { return JSON.parse(text); } catch(_){}
+            // 退一步：尝试提取第一个JSON对象
+            const m = text.match(/\{[\s\S]*\}/);
+            if (m) { try { return JSON.parse(m[0]); } catch(_){} }
+            return null;
+        }
+
+        function normalizeAIResult(obj){
+            if (!obj || typeof obj !== 'object') return { score: 0, summary: 'AI返回为空', checklist: [] };
+            return { score: obj.score ?? 0, summary: obj.summary || '', checklist: obj.checklist || [] };
+        }
+
+        // 移除悬浮评分卡片的专用方法（仅保留侧栏卡片）
+
+        // 初始化画布手动尺寸调节
+        function initCanvasManualResize(){
+            const right = document.getElementById('resizeRight');
+            const bottom = document.getElementById('resizeBottom');
+            const corner = document.getElementById('resizeCorner');
+            resizeHandles.right = right; resizeHandles.bottom = bottom; resizeHandles.corner = corner;
+
+            const builder = canvas?.parentElement; // .membrane-builder
+            if (!canvas || !builder || !right || !bottom || !corner) return;
+
+            const MIN_W = 480;
+            const MIN_H = 280;
+            function clampCanvas(w,h){
+                const maxW = builder.clientWidth - 6; // 留出内边距边框
+                const maxH = Math.max(MIN_H, Math.min(window.innerHeight*0.9, 1200));
+                return [ Math.max(MIN_W, Math.min(w, maxW)), Math.max(MIN_H, Math.min(h, maxH)) ];
+            }
+            function attach(handle, mode){
+                if (!window.PointerEvent) return; // PC/移动均支持，老设备略过
+                handle.addEventListener('pointerdown', (e)=>{
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    const startX = e.clientX, startY = e.clientY;
+                    const startW = rect.width, startH = rect.height;
+                    handle.setPointerCapture?.(e.pointerId);
+                    const onMove = (ev)=>{
+                        let newW = startW, newH = startH;
+                        if (mode==='right' || mode==='corner') newW = startW + (ev.clientX - startX);
+                        if (mode==='bottom' || mode==='corner') newH = startH + (ev.clientY - startY);
+                        const [cw,ch] = clampCanvas(newW, newH);
+                        canvas.style.width = cw + 'px';
+                        canvas.style.height = ch + 'px';
+                    };
+                    const onUp = ()=>{
+                        handle.releasePointerCapture?.(e.pointerId);
+                        document.removeEventListener('pointermove', onMove);
+                        document.removeEventListener('pointerup', onUp);
+                        document.removeEventListener('pointercancel', onUp);
+                    };
+                    document.addEventListener('pointermove', onMove);
+                    document.addEventListener('pointerup', onUp);
+                    document.addEventListener('pointercancel', onUp);
+                });
+            }
+            attach(right, 'right'); attach(bottom, 'bottom'); attach(corner, 'corner');
+        }
+
+        // AI 悬浮窗控制
+        // 将助手以“整页界面”呈现：隐藏主界面，仅显示助手页
+        function openAIModal(){
+            const m = document.getElementById('aiModal');
+            const b = document.getElementById('aiBackdrop');
+            const container = document.querySelector('.container');
+            if (!m || !b || !container) return;
+            // 隐藏主容器，打开整页助手
+            container.classList.add('hidden');
+            m.classList.add('page-mode');
+            m.style.display = 'flex';
+            b.style.display = 'none';
+            // 焦点到问题输入框
+            setTimeout(()=>{ document.getElementById('aiQuestion')?.focus(); }, 0);
+        }
+        function closeAIModal(){
+            const m = document.getElementById('aiModal');
+            const b = document.getElementById('aiBackdrop');
+            const container = document.querySelector('.container');
+            if (!m || !b || !container) return;
+            // 恢复主容器，关闭整页助手
+            container.classList.remove('hidden');
+            m.classList.remove('page-mode');
+            m.style.display = 'none';
+            b.style.display = 'none';
+        }
+        document.addEventListener('keydown', (e)=>{
+            if (e.key === 'Escape') closeAIModal();
+        });
+
+        function toggleAISettings(){
+            const p = document.getElementById('aiSettingsPanel');
+            if (!p) return;
+            p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+            if (p.style.display === 'block') refreshModelOptions();
+        }
+
+        function appendMessage(role, { text = '', image = null } = {}){
+            const log = document.getElementById('chatLog');
+            if (!log) return;
+            const msg = document.createElement('div');
+            msg.className = `msg ${role}`;
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            if (image){
+                const img = document.createElement('img');
+                img.src = image;
+                bubble.appendChild(img);
+            }
+            if (text){ bubble.appendChild(document.createTextNode(text)); }
+            msg.appendChild(bubble);
+            log.appendChild(msg);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function showTyping(){
+            const log = document.getElementById('chatLog');
+            const wrap = document.createElement('div');
+            wrap.className = 'msg ai';
+            wrap.id = 'aiTyping';
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            const dots = document.createElement('div'); dots.className = 'typing';
+            dots.innerHTML = '<span></span><span></span><span></span>';
+            bubble.appendChild(dots);
+            wrap.appendChild(bubble);
+            log.appendChild(wrap);
+            log.scrollTop = log.scrollHeight;
+        }
+        function hideTyping(){
+            const t = document.getElementById('aiTyping');
+            if (t) t.remove();
+        }
+
+        // 模型下拉与自定义输入联动
+        const MODEL_OPTIONS = {
+            deepseek: ['deepseek-chat', 'deepseek-reasoner', '自定义（手动输入）'],
+            ark: ['doubao-seed-1-6-250615', '自定义（手动输入）']
+        };
+        function refreshModelOptions(){
+            const provider = aiProviderInput()?.value || 'deepseek';
+            const sel = aiModelSelect(); const custom = aiModelInput();
+            if (!sel) return;
+            sel.innerHTML = '';
+            (MODEL_OPTIONS[provider] || []).forEach(v => {
+                const opt = document.createElement('option'); opt.value = v; opt.textContent = v; sel.appendChild(opt);
+            });
+            // 默认选第一项
+            sel.value = MODEL_OPTIONS[provider]?.[0] || '';
+            if (custom) { custom.style.display = sel.value.includes('自定义') ? 'block' : 'none'; if (!sel.value.includes('自定义')) custom.value=''; }
+        }
+        function applyModelToUI(model){
+            const provider = aiProviderInput()?.value || 'deepseek';
+            const sel = aiModelSelect(); const custom = aiModelInput();
+            if (!sel) return;
+            const items = MODEL_OPTIONS[provider] || [];
+            if (items.includes(model)) { sel.value = model; if (custom) custom.style.display='none'; }
+            else { sel.value = '自定义（手动输入）'; if (custom) { custom.style.display='block'; custom.value = model; } }
+        }
+        function readModelFromUI(){
+            const sel = aiModelSelect(); const custom = aiModelInput();
+            if (!sel) return custom?.value?.trim() || '';
+            if (sel.value.includes('自定义')) return custom?.value?.trim() || '';
+            return sel.value;
+        }
+        // 事件绑定
+        document.addEventListener('change', (e)=>{
+            if (e.target?.id === 'aiProvider') { refreshModelOptions(); }
+            if (e.target?.id === 'aiModelSelect') {
+                const custom = aiModelInput(); const sel = aiModelSelect();
+                if (custom && sel) custom.style.display = sel.value.includes('自定义') ? 'block' : 'none';
+            }
+        });
+
+        // 拖拽移动悬浮窗
+        function centerAIModal(){
+            const m = document.getElementById('aiModal');
+            if (!m) return;
+            // 去掉居中 transform，改为固定位置，方便拖动
+            const rect = m.getBoundingClientRect();
+            const vw = window.innerWidth, vh = window.innerHeight;
+            m.style.transform = 'none';
+            m.style.left = Math.max(10, (vw - rect.width) / 2) + 'px';
+            m.style.top = Math.max(10, (vh - rect.height) / 2) + 'px';
+        }
+
+        (function enableAIDrag(){
+            const m = document.getElementById('aiModal');
+            const header = m?.querySelector('.ai-modal-header');
+            if (!m || !header) return;
+            let dragging = false; let ox = 0; let oy = 0;
+            // 鼠标拖动
+            header.addEventListener('mousedown', (e)=>{
+                dragging = true;
+                const rect = m.getBoundingClientRect();
+                ox = e.clientX - rect.left; oy = e.clientY - rect.top;
+                document.body.style.userSelect = 'none';
+            });
+            document.addEventListener('mousemove', (e)=>{
+                if (!dragging) return;
+                const vw = window.innerWidth, vh = window.innerHeight;
+                let left = e.clientX - ox; let top = e.clientY - oy;
+                // 边界约束
+                left = Math.min(vw - 40, Math.max(10, left));
+                top = Math.min(vh - 40, Math.max(10, top));
+                m.style.left = left + 'px';
+                m.style.top = top + 'px';
+                m.style.transform = 'none';
+            });
+            document.addEventListener('mouseup', ()=>{
+                dragging = false; document.body.style.userSelect = '';
+            });
+
+            // 触控/笔：使用 Pointer 事件
+            if (window.PointerEvent) {
+                header.addEventListener('pointerdown', (e)=>{
+                    if (e.pointerType === 'mouse') return;
+                    dragging = true;
+                    const rect = m.getBoundingClientRect();
+                    ox = e.clientX - rect.left; oy = e.clientY - rect.top;
+                    m.setPointerCapture?.(e.pointerId);
+                });
+                header.addEventListener('pointermove', (e)=>{
+                    if (!dragging || e.pointerType === 'mouse') return;
+                    const vw = window.innerWidth, vh = window.innerHeight;
+                    let left = e.clientX - ox; let top = e.clientY - oy;
+                    left = Math.min(vw - 40, Math.max(10, left));
+                    top = Math.min(vh - 40, Math.max(10, top));
+                    m.style.left = left + 'px';
+                    m.style.top = top + 'px';
+                    m.style.transform = 'none';
+                });
+                header.addEventListener('pointerup', ()=>{ dragging = false; });
+                header.addEventListener('pointercancel', ()=>{ dragging = false; });
+            }
+            window.addEventListener('resize', ()=>{
+                // 窗口变化时，确保仍在视口内
+                const rect = m.getBoundingClientRect();
+                const vw = window.innerWidth, vh = window.innerHeight;
+                let left = Math.min(vw - 40, Math.max(10, rect.left));
+                let top = Math.min(vh - 40, Math.max(10, rect.top));
+                m.style.left = left + 'px';
+                m.style.top = top + 'px';
+            });
+        })();
+
+        function handleDragStart(e) {
+            draggedElement = e.target.closest('.component-item');
+            if (!draggedElement) return;
+            draggedElement.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'copy';
+            const data = {
+                type: draggedElement.dataset.type,
+                name: draggedElement.dataset.name
+            };
+            try {
+                e.dataTransfer.setData('application/json', JSON.stringify(data));
+            } catch (_) {
+                // 某些浏览器可能不允许自定义类型，回退到 text/plain
+                e.dataTransfer.setData('text/plain', JSON.stringify(data));
+            }
+        }
+
+        function handleDragEnd() {
+            if (draggedElement) draggedElement.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            canvas.classList.add('drag-over');
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        }
+
+        function handleDragLeave() {
+            canvas.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            canvas.classList.remove('drag-over');
+            let raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+            if (!raw) return;
+            let payload = {};
+            try { payload = JSON.parse(raw); } catch (_) { return; }
+            const p2 = screenToContent(e.clientX, e.clientY);
+            createPlacedComponent(payload.type, p2.x, p2.y);
+        }
+
+        // 选择组件以点击放置
+        function selectItemForPlace(item) {
+            clearSelection();
+            selectedType = item.dataset.type;
+            selectedItemEl = item;
+            item.classList.add('selected');
+            canvas.classList.add('placing');
+        }
+
+        function clearSelection() {
+            selectedType = null;
+            if (selectedItemEl) selectedItemEl.classList.remove('selected');
+            selectedItemEl = null;
+            canvas.classList.remove('placing');
+        }
+
+        function clearPlacedSelection() {
+            document.querySelectorAll('#canvasContent .placed-component.selected').forEach(n => n.classList.remove('selected'));
+            if (tooltip) tooltip.style.display = 'none';
+        }
+
+        // 点击画布放置
+        function handleCanvasClickToPlace(e) {
+            if (suppressNextCanvasClick) { suppressNextCanvasClick = false; return; }
+            if (!selectedType) { clearPlacedSelection(); if (tooltip) tooltip.style.display='none'; return; }
+            // 仅在点击空白画布（容器或内容层）时放置
+            const valid = e.target === canvas || e.target === content;
+            if (!valid) return;
+            const p1 = screenToContent(e.clientX, e.clientY);
+            placeAt(selectedType, p1.x, p1.y);
+            // 如需单次放置，改为：clearSelection();
+        }
+
+        // 统一放置入口：支持批量磷脂 x5
+        function placeAt(type, x, y) {
+            // 吸附开启时，磷脂类自动跟随同类上一次的“水平线”（中心Y），保持行对齐
+            if (snapEnabled && (type === 'phospholipid-up' || type === 'phospholipid-down')) {
+                const lastY = lastPhosRowY[type];
+                if (lastY != null) y = lastY;
+            }
+            if (placeBulkCount > 1 && (type === 'phospholipid-up' || type === 'phospholipid-down')) {
+                createPhospholipidRow(type, x, y, placeBulkCount);
+            } else {
+                createPlacedComponent(type, x, y);
+            }
+        }
+
+        function createPhospholipidRow(type, centerX, centerY, count) {
+            const cw = canvas.clientWidth;
+            const w = PHOS_W;             // 单个磷脂宽度
+            const spacing = PHOS_W;       // 与网格一致，刚好并排
+            const total = w + (count - 1) * spacing;
+            // 起点以行居中，且整体不越界
+            let startX = centerX - total / 2 + w / 2;
+            startX = Math.max(w / 2, Math.min(startX, cw - (count - 1) * spacing - w / 2));
+
+            for (let i = 0; i < count; i++) {
+                const xi = startX + i * spacing;
+                createPlacedComponent(type, xi, centerY);
+            }
+        }
+
+        // 批量放置切换按钮：5个磷脂（正/倒）
+        function toggleBulkPhospho(type) {
+            const same = (bulkPreferredType === type && placeBulkCount === 5);
+            if (same) {
+                bulkPreferredType = null; placeBulkCount = 1;
+            } else {
+                bulkPreferredType = type; placeBulkCount = 5;
+            }
+            // 更新左侧芯片高亮
+            const upChip = document.querySelector('.bulk-chip[data-type="phospholipid-up"]');
+            const downChip = document.querySelector('.bulk-chip[data-type="phospholipid-down"]');
+            if (upChip) upChip.classList.toggle('active', bulkPreferredType === 'phospholipid-up' && placeBulkCount === 5);
+            if (downChip) downChip.classList.toggle('active', bulkPreferredType === 'phospholipid-down' && placeBulkCount === 5);
+            // 同时选中左侧对应组件，进入放置模式
+            const item = document.querySelector(`.component-item[data-type="${type}"]`);
+            if (item) selectItemForPlace(item);
+        }
+
+        // 创建并放置组件到画布
+        function createPlacedComponent(type, x, y) {
+            if (!componentSVGs[type]) return;
+            // 首次放置时隐藏画布引导
+            document.getElementById('canvasIntro')?.classList.add('hidden');
+            const el = document.createElement('div');
+            el.className = 'placed-component';
+            el.dataset.type = type;
+            el.innerHTML = `${componentSVGs[type]}`;
+            content.appendChild(el);
+
+            // 初始位置（先放中点，再矫正）
+            const w = el.offsetWidth;
+            const h = el.offsetHeight;
+            const canvasRect = canvas.getBoundingClientRect(); // 用于边界范围
+            let left = x - w / 2;
+            let top = y - h / 2;
+            if (snapEnabled) {
+                left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+                top = Math.round(top / GRID_SIZE) * GRID_SIZE;
+            }
+            // 约束在画布内
+            left = Math.max(0, Math.min(left, canvas.clientWidth - w));
+            top = Math.max(0, Math.min(top, canvas.clientHeight - h));
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+
+            // 根据开关控制动效
+            applyMotionToElement(el);
+
+            // 绑定交互
+            makeDraggableWithinCanvas(el);
+            el.addEventListener('dblclick', () => removePlacedComponent(el));
+
+            // 点击选择 + 键盘删除支持
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('#canvasContent .placed-component.selected').forEach(n => n.classList.remove('selected'));
+                el.classList.add('selected');
+                showComponentBubble(el);
+            });
+
+            // 统计更新
+            incrementCount(type);
+
+            // 吸附开启时，记录磷脂行（中心Y），用于后续保持同一水平线
+            if ((type === 'phospholipid-up' || type === 'phospholipid-down')) {
+                const centerY = top + h / 2;
+                lastPhosRowY[type] = centerY;
+            }
+            scheduleAiEvaluation();
+        }
+
+        function removePlacedComponent(el) {
+            const type = el.dataset.type;
+            el.remove();
+            decrementCount(type);
+            scheduleAiEvaluation();
+        }
+
+        // 键盘删除已选中的组件
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+            const sel = document.querySelector('#canvasContent .placed-component.selected');
+            if (!sel) return;
+            e.preventDefault();
+            removePlacedComponent(sel);
+        });
+
+        // 保存/加载自定义示例
+        function saveCustomPreset() {
+            const items = Array.from(document.querySelectorAll('#canvasContent .placed-component')).map(el => {
+                const left = parseFloat(el.style.left) || 0;
+                const top = parseFloat(el.style.top) || 0;
+                const cx = left + el.offsetWidth / 2;
+                const cy = top + el.offsetHeight / 2;
+                return { type: el.dataset.type, cx, cy };
+            });
+            const payload = { version: 1, items };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                alert('已保存当前组装为“我的示例”。');
+            } catch (err) {
+                console.error(err);
+                alert('保存失败：请检查浏览器是否允许本地存储。');
+            }
+        }
+
+        function loadCustomPreset() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) { alert('尚未保存“我的示例”。'); return; }
+            let data; try { data = JSON.parse(raw); } catch { alert('示例数据已损坏。'); return; }
+            if (!data || !Array.isArray(data.items)) { alert('示例数据格式不正确。'); return; }
+            clearCanvas();
+            data.items.forEach(it => {
+                if (!it || !it.type) return;
+                const cx = Number(it.cx) || 0;
+                const cy = Number(it.cy) || 0;
+                createPlacedComponent(it.type, cx, cy);
+            });
+        }
+
+        function makeDraggableWithinCanvas(el) {
+            let offsetX = 0, offsetY = 0;
+            // 用于触控/笔识别双击（双击）删除
+            if (el.__lastTapTime === undefined) el.__lastTapTime = 0;
+            if (el.__lastTapX === undefined) el.__lastTapX = 0;
+            if (el.__lastTapY === undefined) el.__lastTapY = 0;
+            function onMouseMove(moveEvent) {
+                const elW = el.offsetWidth;
+                const elH = el.offsetHeight;
+                const p = screenToContent(moveEvent.clientX, moveEvent.clientY);
+                let left = p.x - offsetX;
+                let top = p.y - offsetY;
+                const isPhos = (el.dataset.type === 'phospholipid-up' || el.dataset.type === 'phospholipid-down');
+                if (snapEnabled) {
+                    left = Math.round(left / GRID_SIZE) * GRID_SIZE;
+                    if (isPhos && lastPhosRowY[el.dataset.type] != null) {
+                        top = lastPhosRowY[el.dataset.type] - elH / 2;
+                    } else {
+                        top = Math.round(top / GRID_SIZE) * GRID_SIZE;
+                    }
+                }
+                left = Math.max(0, Math.min(left, canvas.clientWidth - elW));
+                top = Math.max(0, Math.min(top, canvas.clientHeight - elH));
+                el.style.left = left + 'px';
+                el.style.top = top + 'px';
+            }
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                if (motionEnabled) applyMotionToElement(el);
+                const type = el.dataset.type;
+                if (type === 'phospholipid-up' || type === 'phospholipid-down') {
+                    const top = parseFloat(el.style.top) || 0;
+                    const h = el.offsetHeight;
+                    lastPhosRowY[type] = top + h / 2;
+                }
+            }
+            el.addEventListener('mousedown', (downEvent) => {
+                if (downEvent.button !== 0) return;
+                // 选中该元素
+                document.querySelectorAll('#canvasContent .placed-component.selected').forEach(n => n.classList.remove('selected'));
+                el.classList.add('selected');
+                const left0 = parseFloat(el.style.left) || 0;
+                const top0 = parseFloat(el.style.top) || 0;
+                const p = screenToContent(downEvent.clientX, downEvent.clientY);
+                offsetX = p.x - left0;
+                offsetY = p.y - top0;
+                // 拖动开始时隐藏提示
+                tooltip.style.display = 'none';
+                // 拖动过程中移除动效，避免干扰
+                clearMotionFromElement(el);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                downEvent.preventDefault();
+            });
+
+            // 触控/笔拖拽（Pointer 事件）
+            if (window.PointerEvent) {
+                let startX = 0, startY = 0, moved = false;
+                const onPointerMove = (e) => {
+                    if (e.pointerType === 'mouse') return; // 避免与鼠标重复
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+                    onMouseMove(e);
+                };
+                const onPointerUp = (e) => {
+                    el.removeEventListener('pointermove', onPointerMove);
+                    el.removeEventListener('pointerup', onPointerUp);
+                    el.removeEventListener('pointercancel', onPointerUp);
+                    if (!moved) {
+                        // 触控双击（双击）删除
+                        const now = Date.now();
+                        const dt = now - (el.__lastTapTime || 0);
+                        const dist = Math.hypot((e.clientX - (el.__lastTapX || 0)), (e.clientY - (el.__lastTapY || 0)));
+                        if (dt < 350 && dist < 12) {
+                            removePlacedComponent(el);
+                            return;
+                        }
+                        el.__lastTapTime = now;
+                        el.__lastTapX = e.clientX;
+                        el.__lastTapY = e.clientY;
+                    }
+                    if (motionEnabled) applyMotionToElement(el);
+                    const type = el.dataset.type;
+                    if (type === 'phospholipid-up' || type === 'phospholipid-down') {
+                        const top = parseFloat(el.style.top) || 0;
+                        const h = el.offsetHeight;
+                        lastPhosRowY[type] = top + h / 2;
+                    }
+                    scheduleAiEvaluation();
+                };
+                el.addEventListener('pointerdown', (e) => {
+                    if (e.pointerType === 'mouse') return;
+                    moved = false;
+                    startX = e.clientX; startY = e.clientY;
+                    const left0 = parseFloat(el.style.left) || 0;
+                    const top0 = parseFloat(el.style.top) || 0;
+                    const p = screenToContent(e.clientX, e.clientY);
+                    offsetX = p.x - left0;
+                    offsetY = p.y - top0;
+                    tooltip.style.display = 'none';
+                    clearMotionFromElement(el);
+                    el.setPointerCapture?.(e.pointerId);
+                    el.addEventListener('pointermove', onPointerMove);
+                    el.addEventListener('pointerup', onPointerUp);
+                    el.addEventListener('pointercancel', onPointerUp);
+                    e.preventDefault();
+                });
+            } else {
+                // 旧设备 Touch 兼容
+                let startX = 0, startY = 0, moved = false;
+                const onTouchMove = (te) => {
+                    const t = (te.touches || [])[0]; if (!t) return;
+                    const dx = t.clientX - startX;
+                    const dy = t.clientY - startY;
+                    if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+                    onMouseMove(t);
+                    te.preventDefault();
+                };
+                const onTouchEnd = (te) => {
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.removeEventListener('touchend', onTouchEnd);
+                    document.removeEventListener('touchcancel', onTouchEnd);
+                    if (!moved) {
+                        // 双击（双击）删除
+                        const t = (te.changedTouches || [])[0];
+                        if (t) {
+                            const now = Date.now();
+                            const dt = now - (el.__lastTapTime || 0);
+                            const dist = Math.hypot((t.clientX - (el.__lastTapX || 0)), (t.clientY - (el.__lastTapY || 0)));
+                            if (dt < 350 && dist < 12) {
+                                removePlacedComponent(el);
+                                return;
+                            }
+                            el.__lastTapTime = now;
+                            el.__lastTapX = t.clientX;
+                            el.__lastTapY = t.clientY;
+                        }
+                    }
+                    if (motionEnabled) applyMotionToElement(el);
+                    const type = el.dataset.type;
+                    if (type === 'phospholipid-up' || type === 'phospholipid-down') {
+                        const top = parseFloat(el.style.top) || 0;
+                        const h = el.offsetHeight;
+                        lastPhosRowY[type] = top + h / 2;
+                    }
+                };
+                el.addEventListener('touchstart', (ts) => {
+                    const t = (ts.touches || [])[0]; if (!t) return;
+                    moved = false; startX = t.clientX; startY = t.clientY;
+                    const left0 = parseFloat(el.style.left) || 0;
+                    const top0 = parseFloat(el.style.top) || 0;
+                    const p = screenToContent(t.clientX, t.clientY);
+                    offsetX = p.x - left0;
+                    offsetY = p.y - top0;
+                    tooltip.style.display = 'none';
+                    clearMotionFromElement(el);
+                    document.addEventListener('touchmove', onTouchMove, { passive: false });
+                    document.addEventListener('touchend', onTouchEnd);
+                    document.addEventListener('touchcancel', onTouchEnd);
+                }, { passive: true });
+            }
+        }
+
+        // 运动控制函数
+        function applyMotionToElement(el) {
+            if (!motionEnabled) return;
+            clearMotionFromElement(el);
+            if (Math.random() > 0.5) el.classList.add('floating');
+            else el.classList.add('pulsing');
+        }
+        function clearMotionFromElement(el) {
+            el.classList.remove('floating');
+            el.classList.remove('pulsing');
+        }
+        function applyMotionToAll() {
+            document.querySelectorAll('#canvasContent .placed-component').forEach(applyMotionToElement);
+        }
+        function clearMotionFromAll() {
+            document.querySelectorAll('#canvasContent .placed-component').forEach(clearMotionFromElement);
+        }
+        function toggleMotion() {
+            motionEnabled = !motionEnabled;
+            const btn = document.getElementById('motionToggleBtn');
+            if (motionEnabled) {
+                btn.textContent = '停止运动';
+                btn.classList.add('active');
+                applyMotionToAll();
+            } else {
+                btn.textContent = '开启运动';
+                btn.classList.remove('active');
+                clearMotionFromAll();
+            }
+        }
+
+        function bindTooltip(el) {
+            const type = el.dataset.type;
+            const info = componentInfo[type] || { name: type, desc: '' };
+            function onEnter() { tooltip.style.display = 'block'; }
+            function onMove(e) {
+                const content = `<strong>${info.name}</strong><br><span style="opacity:.9">${info.desc}</span>`;
+                tooltip.innerHTML = content;
+                const padding = 12;
+                const rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left + padding;
+                let y = e.clientY - rect.top + padding;
+                // 保证不超出画布
+                const maxX = rect.width - tooltip.offsetWidth - 8;
+                const maxY = rect.height - tooltip.offsetHeight - 8;
+                tooltip.style.left = Math.min(x, maxX) + 'px';
+                tooltip.style.top = Math.min(y, maxY) + 'px';
+            }
+            function onLeave() { tooltip.style.display = 'none'; }
+            el.addEventListener('mouseenter', onEnter);
+            el.addEventListener('mousemove', onMove);
+            el.addEventListener('mouseleave', onLeave);
+        }
+
+        // 点击显示组件作用说明（悬浮气泡，锚定在元素附近）
+        function showComponentBubble(el){
+            if (!tooltip || !el) return;
+            const type = el.dataset.type;
+            const info = componentInfo[type] || { name: type, desc: '' };
+            tooltip.innerHTML = `<strong>${info.name}</strong><br><span style="opacity:.9">${info.desc}</span>`;
+            const rectC = canvas.getBoundingClientRect();
+            const rectE = el.getBoundingClientRect();
+            // 先显示以便测量尺寸
+            tooltip.style.display = 'block';
+            const pad = 8;
+            // 以视口为参照，优先放在元素右上侧；顶部放不下则放在右下侧
+            let leftAbs = rectE.right + pad;
+            let topAbs = rectE.top - tooltip.offsetHeight - pad;
+            const minLeft = rectC.left + 8;
+            const maxLeft = rectC.right - tooltip.offsetWidth - 8;
+            const minTop = rectC.top + 8;
+            const maxTop = rectC.bottom - tooltip.offsetHeight - 8;
+            if (topAbs < minTop) topAbs = rectE.bottom + pad;
+            // 如右侧空间不足，则尝试放在左侧
+            if (leftAbs > maxLeft) leftAbs = rectE.left - tooltip.offsetWidth - pad;
+            // 边界保护
+            leftAbs = Math.min(Math.max(minLeft, leftAbs), maxLeft);
+            topAbs = Math.min(Math.max(minTop, topAbs), maxTop);
+            tooltip.style.left = leftAbs + 'px';
+            tooltip.style.top = topAbs + 'px';
+        }
+
+        // 统计逻辑
+        function resetCounts() {
+            componentCounts = {};
+            Object.keys(typeToCounterId).forEach(t => componentCounts[t] = 0);
+            updateStats();
+        }
+
+        function incrementCount(type) {
+            if (!(type in componentCounts)) componentCounts[type] = 0;
+            componentCounts[type]++;
+            updateStats();
+        }
+
+        function decrementCount(type) {
+            if (!(type in componentCounts)) return;
+            componentCounts[type] = Math.max(0, componentCounts[type] - 1);
+            updateStats();
+        }
+
+        function updateStats() {
+            Object.entries(typeToCounterId).forEach(([type, id]) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = componentCounts[type] || 0;
+            });
+        }
+
+        // 视图与背景渲染
+        let backgroundVisible = false;
+        function renderMembraneBackground() {
+            const bg = document.getElementById('membraneBackground');
+            const width = canvas.clientWidth || 1200;
+            const height = 200; // 固定背景层高度
+
+            if (currentView === 'side') {
+                // 侧视：上下两排头部；背景纯白
+                const heads = Math.max(12, Math.floor(width / 60));
+                const topY = 40, bottomY = 160;
+                const tailTop = 60, tailBottom = 140;
+                const spacing = width / (heads + 1);
+
+                let circlesTop = '';
+                let circlesBottom = '';
+                let tails = '';
+                for (let i = 1; i <= heads; i++) {
+                    const cx = Math.round(i * spacing);
+                    circlesTop += `<circle cx="${cx}" cy="${topY}" r="8" fill="#64B5F6" opacity="0.95"/>`;
+                    circlesBottom += `<circle cx="${cx}" cy="${bottomY}" r="8" fill="#64B5F6" opacity="0.95"/>`;
+                    // 波浪形疏水尾（红色）
+                    const path1 = `M ${cx-3} ${tailTop} C ${cx-6} ${tailTop+12}, ${cx} ${tailTop+24}, ${cx-3} ${tailTop+36} C ${cx-6} ${tailTop+44}, ${cx} ${tailTop+56}, ${cx-3} ${tailBottom}`;
+                    const path2 = `M ${cx+3} ${tailTop} C ${cx+6} ${tailTop+12}, ${cx} ${tailTop+24}, ${cx+3} ${tailTop+36} C ${cx+6} ${tailTop+44}, ${cx} ${tailTop+56}, ${cx+3} ${tailBottom}`;
+                    tails += `<path d="${path1}" stroke="#EF5350" stroke-width="2.5" fill="none" opacity="0.7"/>`;
+                    tails += `<path d="${path2}" stroke="#EF5350" stroke-width="2.5" fill="none" opacity="0.7"/>`;
+                }
+
+                bg.innerHTML = `
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                        <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>
+                        ${tails}
+                        ${circlesTop}
+                        ${circlesBottom}
+                    </svg>
+                `;
+            } else {
+                // 俯视：头部在两侧边缘的稠密分布；背景纯白
+                const cols = Math.max(16, Math.floor(width / 50));
+                const rows = 4;
+                const spacingX = width / (cols + 1);
+                const spacingY = height / (rows + 1);
+                let dots = '';
+                for (let r = 1; r <= rows; r++) {
+                    for (let c = 1; c <= cols; c++) {
+                        const cx = Math.round(c * spacingX);
+                        const cy = Math.round(r * spacingY);
+                        const color = r <= 2 ? '#2196F3' : '#FF5722';
+                        dots += `<circle cx="${cx}" cy="${cy}" r="6" fill="${color}" opacity="0.9"/>`;
+                    }
+                }
+                bg.innerHTML = `
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+                        <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff"/>
+                        ${dots}
+                    </svg>
+                `;
+            }
+            backgroundVisible = true;
+        }
+
+        // 取消切换视角功能：保留背景渲染方法以备将来需要，但不再提供切换入口
+
+        function clearCanvas() {
+            document.querySelectorAll('#membraneCanvas .placed-component').forEach(el => el.remove());
+            resetCounts();
+            // 清空后若无元素，则显示引导
+            document.getElementById('canvasIntro')?.classList.remove('hidden');
+            scheduleAiEvaluation();
+        }
+
+        function loadPreset() {
+            clearCanvas();
+            // 生成一组典型分布
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            const midY = height / 2;
+
+            // 两排磷脂（双分子层）更紧凑：数量进一步增加、左右边距更窄
+            const n = 36; // 再增加数量，进一步压缩水平间距
+            const marginX = Math.max(3, Math.floor(width * 0.01)); // 更小的左右边距
+            const usable = width - 2 * marginX;
+            const spacing = usable / (n - 1);
+            const deltaY = 45; // 上下层距离缩到 45
+
+            // 为三类跨膜蛋白预留空档，避免与磷脂重叠
+            const reservedXs = [width * 0.12, width * 0.50, width * 0.88];
+            const reservedRadius = 45; // 空档稍微缩小，整体更紧凑
+
+            for (let i = 0; i < n; i++) {
+                const x = marginX + i * spacing;
+                const nearReserved = reservedXs.some(rx => Math.abs(x - rx) < reservedRadius);
+                if (nearReserved) continue; // 在空档位置不放磷脂
+                // 上层：正置（头朝外，向上）
+                createPlacedComponent('phospholipid-up', x, midY - deltaY);
+                // 下层：倒置（头朝外，向下）
+                createPlacedComponent('phospholipid-down', x, midY + deltaY);
+            }
+
+            // 胆固醇（嵌入疏水区）更密一些
+            for (let i = 1; i < n - 1; i += 2) {
+                const x = marginX + i * spacing + (Math.random() * 10 - 5);
+                const nearReserved = reservedXs.some(rx => Math.abs(x - rx) < reservedRadius - 10);
+                if (nearReserved) continue;
+                createPlacedComponent('cholesterol', x, midY + (Math.random() * 8 - 4));
+            }
+
+            // 跨膜/通道/载体蛋白（跨越双层）尽可能分散（左/中/右），各自占据预留空档
+            createPlacedComponent('integral-protein', reservedXs[0], midY);
+            createPlacedComponent('channel-protein',  reservedXs[1], midY);
+            createPlacedComponent('carrier-protein',  reservedXs[2], midY);
+
+            // 外周蛋白（内外表面）分散在更远左右，且不与磷脂层重叠
+            createPlacedComponent('peripheral-protein', width * 0.08, midY - (deltaY + 60));
+            createPlacedComponent('peripheral-protein', width * 0.92, midY + (deltaY + 60));
+
+            // 糖类（外侧）分散：偏左/偏右，且明显在磷脂层之外
+            createPlacedComponent('glycoprotein', width * 0.28, midY - (deltaY + 90));
+            createPlacedComponent('glycolipid',  width * 0.72, midY - (deltaY + 92));
+            // 多糖/寡糖链已移除
+        }
+
+        // 初始渲染
+        resetCounts();
+        // 起始画板保持空白，不渲染背景
+        window.addEventListener('resize', () => {
+            if (backgroundVisible) renderMembraneBackground();
+            // 若最近未进行手动缩放，则在窗口变化时自适应
+            if (Date.now() - lastManualZoomTs > 1000) autoFitToViewport();
+        });
+        // 启用画布手动尺寸调节
+        initCanvasManualResize();
+
+        // ========= AI 学习助手 =========
+        const aiProviderInput = () => document.getElementById('aiProvider');
+        const aiModelSelect = () => document.getElementById('aiModelSelect');
+        const aiApiKeyInput = () => document.getElementById('aiApiKey');
+        const aiModelInput = () => document.getElementById('aiModel');
+        const aiQuestionInput = () => document.getElementById('aiQuestion');
+        const aiImageInput = () => document.getElementById('aiImage');
+        const aiResp = () => document.getElementById('aiResponse');
+        const aiStat = () => document.getElementById('aiStatus');
+
+        (function initAISettings(){
+            try {
+                let raw = localStorage.getItem(AI_SETTINGS_KEY);
+                // 如本地未保存设置，内置一份 DeepSeek 默认配置（仅本地使用）
+                if (!raw) {
+                    const preset = {
+                        provider: 'deepseek',
+                        model: 'deepseek-chat',
+                        apiKey: 'sk-626c6ff8cdef4c5e82280a39bd8ea71a'
+                    };
+                    try { localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(preset)); } catch(_){}
+                    raw = JSON.stringify(preset);
+                }
+                const s = JSON.parse(raw);
+                if (s.provider && aiProviderInput()) aiProviderInput().value = s.provider;
+                // 初始化模型下拉
+                refreshModelOptions();
+                if (s.model) applyModelToUI(s.model);
+                if (s.apiKey && aiApiKeyInput()) aiApiKeyInput().value = s.apiKey;
+            } catch(_){}
+        })();
+
+        function saveAISettings(){
+            const provider = aiProviderInput()?.value || 'deepseek';
+            const model = readModelFromUI() || '';
+            const apiKey = aiApiKeyInput()?.value?.trim() || '';
+            localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify({ provider, model, apiKey }));
+            if (aiStat()) aiStat().textContent = `设置已保存（提供商：${provider}）`;
+        }
+
+        function toBase64(file){
+            return new Promise((resolve,reject)=>{
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+
+        async function askAI(){
+            const q = (aiQuestionInput()?.value || '').trim();
+            const file = aiImageInput()?.files?.[0] || null;
+            let provider = (aiProviderInput()?.value) || '';
+            if (!provider) provider = /deepseek/i.test(model) ? 'deepseek' : 'ark';
+            const model = readModelFromUI() || (provider==='deepseek' ? 'deepseek-chat' : 'doubao-seed-1-6-250615');
+            const apiKey = aiApiKeyInput()?.value?.trim();
+            if (!q && !file){
+                if (aiStat()) aiStat().textContent = '请至少输入问题或上传一张图片';
+                return;
+            }
+            if (aiResp()) { aiResp().style.display='block'; aiResp().textContent = '正在思考中…'; }
+            if (aiStat()) aiStat().textContent = apiKey ? `正在请求 ${provider==='deepseek' ? 'DeepSeek' : '火山引擎 Ark'} …` : '未填写密钥，生成本地示范解答…';
+
+            try {
+                let image_b64 = null;
+                if (file) image_b64 = await toBase64(file);
+                // 先渲染用户消息
+                appendMessage('user', { text: q, image: image_b64 });
+                document.getElementById('aiQuestion').value = '';
+                if (aiImageInput()) aiImageInput().value = '';
+                showTyping();
+
+                if (!apiKey){
+                    // 本地示范：结合当前画布统计，给出引导性回答
+                    const stats = Object.entries(typeToCounterId).map(([t,id])=>`${t}:${document.getElementById(id)?.textContent||0}`).join(' ');
+                    const demo = `示范回答（本地生成，未调用API）\n你的问题：${q || '（无文本，仅图片）'}\n组件统计：${stats}\n建议：\n1) 先完成双分子层的连续性，再添加通道/载体蛋白分散分布。\n2) 糖蛋白/糖脂应位于外侧，长度可根据任务要求增减。\n3) 若不确定某组件位置，可上传截图让AI标注校正。`;
+                    aiResp().textContent = demo;
+                    return;
+                }
+                if (provider==='deepseek'){
+                    // DeepSeek: OpenAI兼容 Chat Completions
+                    const dsBody = {
+                        model: model || 'deepseek-chat',
+                        messages: [
+                            { role: 'system', content: 'You are a helpful assistant for biology membrane modeling.' },
+                            { role: 'user', content: q || '(无文本)' }
+                        ],
+                        stream: false
+                    };
+                    if (image_b64) {
+                        appendMessage('ai', { text: '提示：当前 DeepSeek 文本模型将忽略上传图片。如需视觉分析请切换 Ark 多模态。' });
+                    }
+                    const dsRes = await fetch(DEEPSEEK_ENDPOINT_DEFAULT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(dsBody)
+                    });
+                    if (!dsRes.ok){
+                        const t = await dsRes.text();
+                        throw new Error(`DeepSeek错误: ${dsRes.status} ${t}`);
+                    }
+                    const dsData = await dsRes.json();
+                    const answer = dsData.choices?.[0]?.message?.content || JSON.stringify(dsData, null, 2);
+                    hideTyping();
+                    appendMessage('ai', { text: answer });
+                    aiStat().textContent = '已完成';
+                    return;
+                } else {
+                    // 火山引擎 Ark（type: text / image_url）
+                    const arkBody = {
+                        model: model,
+                        messages: [{
+                            role: 'user',
+                            content: [
+                                ...(q ? [{ type: 'text', text: q }] : []),
+                                ...(image_b64 ? [{ type: 'image_url', image_url: { url: image_b64 } }] : [])
+                            ]
+                        }]
+                    };
+                    const arkRes = await fetch(ARK_ENDPOINT_DEFAULT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(arkBody)
+                    });
+                    if (!arkRes.ok){
+                        const t = await arkRes.text();
+                        throw new Error(`Ark错误: ${arkRes.status} ${t}`);
+                    }
+                    const arkData = await arkRes.json();
+                    let answer = '';
+                    try {
+                        const msg = arkData.choices?.[0]?.message;
+                        if (Array.isArray(msg?.content)) answer = msg.content.map(p=>p.text||'').join('\n').trim();
+                        else answer = msg?.content || '';
+                    } catch(_){}
+                    if (!answer) answer = JSON.stringify(arkData, null, 2);
+                    hideTyping();
+                    appendMessage('ai', { text: answer });
+                    aiStat().textContent = '已完成';
+                    return;
+                }
+            } catch(err){
+                hideTyping();
+                appendMessage('ai', { text: `请求失败：${err.message}` });
+                aiStat().textContent = '请检查网络、API地址或密钥设置';
+            }
+        }
+
+        function clearAI(){
+            if (aiQuestionInput()) aiQuestionInput().value = '';
+            if (aiImageInput()) aiImageInput().value = '';
+            if (aiResp()) { aiResp().style.display='none'; aiResp().textContent=''; }
+            if (aiStat()) aiStat().textContent = '已清空';
+        }
+
+        // 确保启动时不弹出 AI 助手（安全兜底）
+        document.addEventListener('DOMContentLoaded', () => {
+            const m = document.getElementById('aiModal');
+            const b = document.getElementById('aiBackdrop');
+            const container = document.querySelector('.container');
+            if (m) { m.style.display = 'none'; m.classList.remove('page-mode'); }
+            if (b) { b.style.display = 'none'; }
+            if (container) { container.classList.remove('hidden'); }
+        });
+    </script>
+</body>
 </html>
