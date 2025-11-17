@@ -1,0 +1,15 @@
+# 自习监督程序依赖包
+# 核心依赖（必需）
+# 注意：以下依赖为可选，根据使用场景安装
+
+# 噪音监控依赖
+numpy>=1.20.0
+sounddevice>=0.4.0
+
+# 摄像头依赖（可选，二选一）
+# OpenCV（跨平台）
+opencv-python>=4.5.0
+
+# imagesnap（仅macOS，通过Homebrew安装）
+# brew install imagesnap
+
